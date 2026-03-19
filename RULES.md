@@ -61,7 +61,29 @@ These rules apply to all development on this project. Every agent, contributor, 
   npm run test:e2e  # E2E tests (requires dev server)
   ```
 
-## 5. General
+## 5. Daily Dev.to Post
+
+- Every day, publish one post on [dev.to](https://dev.to) about:
+  - A development challenge we encountered that day, OR
+  - A topic/technique we worked on (TDD, BDD, R2 uploads, Clerk webhooks, etc.)
+- Post should be practical, honest, and developer-focused
+- Include code snippets where relevant
+- Tag appropriately: `nextjs`, `typescript`, `webdev`, `opensource`, etc.
+- Keep a log of published posts in `docs/devto-posts.md`
+
+## 6. Open Source Audit
+
+- Regularly review which parts of the codebase can be open sourced
+- Criteria for open sourcing a module:
+  - No business-sensitive logic (no pricing, no user data handling)
+  - Generic enough to be useful to other developers
+  - Has good test coverage
+  - Well documented
+- Candidates to evaluate: utility libs, BDD helpers, R2 upload helpers, Inngest job templates
+- Track open source candidates in `docs/opensource-candidates.md`
+- When a module is ready, extract it to a separate package under `packages/`
+
+## 7. General
 
 - No feature ships without tests
 - No `console.log` left in committed code
