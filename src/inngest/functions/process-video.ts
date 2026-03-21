@@ -1,6 +1,8 @@
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import ffmpeg from "fluent-ffmpeg";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { inngest } from "@/lib/inngest";
@@ -8,6 +10,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { transcribeAudio } from "@/lib/groq";
 import { generateHighlights } from "@/lib/gemini";
+
+const execFileAsync = promisify(execFile);
 
 async function updateProjectStatus(
   projectId: string,
@@ -24,6 +28,20 @@ async function downloadR2Object(r2Key: string): Promise<Buffer> {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+function isYouTubeUrl(str: string): boolean {
+  return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(str);
+}
+
+async function downloadYouTubeVideo(url: string, outputPath: string): Promise<void> {
+  await execFileAsync("yt-dlp", [
+    "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "--merge-output-format", "mp4",
+    "--output", outputPath,
+    "--no-playlist",
+    url,
+  ]);
 }
 
 function extractAudioFromVideo(videoPath: string, audioPath: string): Promise<void> {
@@ -62,11 +80,16 @@ export async function processVideoHandler(
   let highlightId: string | undefined;
 
   try {
-    // Step 1 — download-from-r2
+    // Step 1 — download video (R2 or YouTube)
     await step.run("download-from-r2", async () => {
       await updateProjectStatus(projectId, { status: "processing" });
-      const buffer = await downloadR2Object(r2Key);
-      await fs.writeFile(videoPath, buffer);
+      if (isYouTubeUrl(r2Key)) {
+        // r2Key holds the YouTube URL for youtube-type projects
+        await downloadYouTubeVideo(r2Key, videoPath);
+      } else {
+        const buffer = await downloadR2Object(r2Key);
+        await fs.writeFile(videoPath, buffer);
+      }
     });
 
     // Step 2 — extract-audio
