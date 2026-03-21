@@ -44,6 +44,17 @@ async function compressAudio(inputPath: string): Promise<string> {
   return outputPath;
 }
 
+/**
+ * Parse Groq's "Please try again in Xm Ys" message and return ms to wait.
+ */
+function parseRetryAfterMs(message: string): number | null {
+  const match = message.match(/try again in (\d+)m(\d+)s/);
+  if (match) return (parseInt(match[1]) * 60 + parseInt(match[2]) + 5) * 1000;
+  const secMatch = message.match(/try again in (\d+)s/);
+  if (secMatch) return (parseInt(secMatch[1]) + 5) * 1000;
+  return null;
+}
+
 export async function transcribeAudio(audioPath: string): Promise<TranscriptResult> {
   if (!audioPath) throw new Error("audioPath is required");
 
@@ -58,11 +69,22 @@ export async function transcribeAudio(audioPath: string): Promise<TranscriptResu
     console.log(`Compressed to ${newStats.size} bytes`);
   }
 
-  const transcription = await getGroqClient().audio.transcriptions.create({
-    file: fs.createReadStream(filePath),
-    model: "whisper-large-v3",
-    response_format: "verbose_json",
-  });
+  let transcription;
+  try {
+    transcription = await getGroqClient().audio.transcriptions.create({
+      file: fs.createReadStream(filePath),
+      model: "whisper-large-v3",
+      response_format: "verbose_json",
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const retryMs = parseRetryAfterMs(msg);
+    if (retryMs) {
+      // Surface a clear error so Inngest retries after the rate limit window
+      throw new Error(`Groq rate limit — retry after ${Math.ceil(retryMs / 1000)}s. Original: ${msg}`);
+    }
+    throw err;
+  }
 
   // Clean up compressed file if we created one
   if (filePath !== audioPath) {

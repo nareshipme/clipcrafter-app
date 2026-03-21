@@ -10,10 +10,10 @@ function getGenAI(): GoogleGenerativeAI {
 // Override via GEMINI_MODEL env var (e.g. "gemini-2.5-pro") to skip fallback.
 const MODEL_FALLBACK_CHAIN = [
   process.env.GEMINI_MODEL,          // env override (highest priority)
-  "gemini-2.0-flash",                // current stable
-  "gemini-2.0-flash-lite",           // lighter variant
-  "gemini-1.5-flash",                // previous gen fallback
-  "gemini-1.5-flash-latest",         // alias, sometimes available when specific isn't
+  "gemini-2.5-flash",                // latest stable (confirmed available)
+  "gemini-2.0-flash",                // previous stable fallback
+  "gemini-flash-latest",             // rolling alias — always points to latest flash
+  "gemini-2.0-flash-lite",           // lighter fallback
 ].filter(Boolean) as string[];
 
 // Deduplicate while preserving order
