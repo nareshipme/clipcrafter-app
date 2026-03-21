@@ -120,11 +120,14 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
     setStep("creating");
     setErrorMsg("");
     try {
-      const title = youtubeUrl.trim();
+      const url = youtubeUrl.trim();
+      // Extract video ID for a cleaner title, fallback to the URL itself
+      const ytMatch = url.match(/(?:v=|youtu\.be\/|\/live\/)([a-zA-Z0-9_-]{11})/);
+      const title = ytMatch ? `YouTube video (${ytMatch[1]})` : url;
       const createRes = await fetch("/api/projects/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, type: "youtube" }),
+        body: JSON.stringify({ title, type: "youtube", youtubeUrl: url }),
       });
       if (!createRes.ok) throw new Error("Failed to create project");
       const { id } = await createRes.json();

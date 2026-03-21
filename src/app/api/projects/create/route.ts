@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { title, type } = body as { title?: string; type?: string };
+  const { title, type, youtubeUrl } = body as { title?: string; type?: string; youtubeUrl?: string };
 
   if (!title || typeof title !== "string" || title.trim() === "") {
     return Response.json({ error: "title is required" }, { status: 400 });
@@ -26,6 +26,9 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (type === "youtube" && !youtubeUrl) {
+    return Response.json({ error: "youtubeUrl is required for type=youtube" }, { status: 400 });
+  }
 
   const supabaseUserId = await getSupabaseUserId(userId);
   if (!supabaseUserId) {
@@ -34,7 +37,14 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("projects")
-    .insert({ user_id: supabaseUserId, title: title.trim(), type, status: "pending" })
+    .insert({
+      user_id: supabaseUserId,
+      title: title.trim(),
+      type,
+      status: "pending",
+      // For YouTube projects, store the URL in r2_key so the Inngest job can pick it up
+      ...(type === "youtube" && youtubeUrl ? { r2_key: youtubeUrl.trim() } : {}),
+    })
     .select()
     .single();
 
