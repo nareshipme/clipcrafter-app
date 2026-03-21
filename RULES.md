@@ -114,3 +114,23 @@ Every page must be mobile responsive. Test on mobile before marking any phase co
 - Touch targets minimum 44px
 - Text readable without zooming (min 16px base)
 - Test at 390px width (iPhone) and 414px (Android) as baseline
+
+## 10. Bug Log
+
+Every non-trivial bug found during development must be logged in `docs/bug-log.md`.
+
+### Format
+```
+## YYYY-MM-DD — [Short bug title]
+**Symptom:** What the user/dev saw
+**Root cause:** Why it happened
+**Fix:** What was changed
+**Files:** Which files were modified
+**Post-worthy:** Yes/No — if yes, tag it for a future dev.to post
+```
+
+### Rules
+- Log bugs as they're found — don't batch them later
+- Be honest about root cause (don't just say "it was broken")
+- If it's a pattern that could bite other devs, mark `Post-worthy: Yes`
+- Review the log during daily dev.to post time (Rule 5) — use post-worthy bugs as content
