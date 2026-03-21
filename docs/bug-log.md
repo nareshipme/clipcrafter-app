@@ -95,3 +95,59 @@ Bugs found during ClipCrafter development. Post-worthy ones get turned into dev.
 **Post-worthy:** Yes — "The Inngest temp file trap: why your files disappear between steps"
 
 ---
+
+## 2026-03-21 — Groq API key was a placeholder in .env.local
+
+**Symptom:** Transcription step failed with "Invalid API Key".
+
+**Root cause:** `.env.local` had `GROQ_API_KEY=placeholder_add_from_existing_env` — never replaced with the real key from the old prototype at `~/dev/toolnexus`.
+
+**Fix:** Pulled real key from `~/dev/toolnexus/.env` and updated `.env.local`. Same for `GEMINI_API_KEY`.
+
+**Files:** `.env.local`
+
+**Post-worthy:** No (simple oversight)
+
+---
+
+## 2026-03-21 — Groq Whisper 25MB file size limit
+
+**Symptom:** Transcription failed with `request_too_large` — audio file was 29MB.
+
+**Root cause:** Groq Whisper API has a hard 25MB limit. A ~30min YouTube live stream easily exceeds this.
+
+**Fix:** Added auto-compression in `transcribeAudio()` — if audio > 24MB, re-encodes with ffmpeg to 32kbps mono 16kHz (~14MB/hour) before sending. Original file untouched.
+
+**Files:** `src/lib/groq.ts`
+
+**Post-worthy:** Yes — "Groq Whisper's 25MB limit: how to auto-compress audio before transcription"
+
+---
+
+## 2026-03-21 — Gemini 1.5 Flash fully deprecated (404)
+
+**Symptom:** Highlights generation failed with `404 Not Found — models/gemini-1.5-flash is not found`.
+
+**Root cause:** `gemini-1.5-flash` is completely removed from the API. Gemini 3 is now available.
+
+**Fix:** Updated fallback chain to: `gemini-2.5-flash → gemini-2.0-flash → gemini-flash-latest → gemini-2.0-flash-lite`. Added `GEMINI_MODEL` env override for future-proofing. Chain verified against live `/v1beta/models` API.
+
+**Files:** `src/lib/gemini.ts`
+
+**Post-worthy:** Yes (bundle with original Gemini deprecation post)
+
+---
+
+## 2026-03-21 — Groq free tier rate limit (7200 audio-seconds/hour)
+
+**Symptom:** Transcription failed with rate limit exceeded after processing a live stream. Used 6342/7200 audio-seconds in one request.
+
+**Root cause:** Groq free tier limits to 7200s (~2hrs) of audio per hour. A single long live stream nearly maxed it out.
+
+**Fix:** Added `parseRetryAfterMs()` to surface the wait time in the error message. Inngest will retry after the window. Long-term: add duration check before processing, warn if > 30 min.
+
+**Files:** `src/lib/groq.ts`
+
+**Post-worthy:** No (rate limit issue, not a code bug)
+
+---
