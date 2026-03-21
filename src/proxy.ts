@@ -2,6 +2,10 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api(.*)"]);
+const isPublicApiRoute = createRouteMatcher([
+  "/api/inngest(.*)",    // Inngest dev server must reach this
+  "/api/webhooks(.*)",  // Clerk webhooks are self-authenticating
+]);
 const isAuthRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -11,6 +15,9 @@ export default clerkMiddleware(async (auth, req) => {
   if (userId && isAuthRoute(req)) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
+
+  // Skip auth for public API routes (Inngest, webhooks)
+  if (isPublicApiRoute(req)) return;
 
   // Protect dashboard and API routes
   if (isProtectedRoute(req)) await auth.protect();
