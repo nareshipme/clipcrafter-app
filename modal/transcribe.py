@@ -11,13 +11,18 @@ import urllib.request
 
 app = modal.App("clipcrafter-transcribe")
 
-# Image with faster-whisper + ffmpeg
+# CUDA-enabled image with faster-whisper + ffmpeg
+# Must use from_registry with a CUDA base — debian_slim doesn't have libcublas
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.from_registry(
+        "nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04",
+        add_python="3.11",
+    )
     .apt_install("ffmpeg")
     .pip_install(
         "faster-whisper==1.1.1",
         "numpy",
+        "requests",
     )
 )
 
