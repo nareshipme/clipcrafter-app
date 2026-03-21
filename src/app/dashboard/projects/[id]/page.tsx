@@ -128,6 +128,14 @@ export function ProjectDetailContent({ id }: { id: string }) {
     fetchStatus();
   }
 
+  async function handleDelete() {
+    if (!confirm("Delete this project? This cannot be undone.")) return;
+    const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      window.location.href = "/dashboard";
+    }
+  }
+
   const isProcessing =
     data &&
     !TERMINAL_STATUSES.includes(data.status) &&
@@ -148,7 +156,15 @@ export function ProjectDetailContent({ id }: { id: string }) {
           </svg>
           Back
         </Link>
-        <span className="text-lg font-bold text-white">ClipCrafter</span>
+        <span className="text-lg font-bold text-white flex-1">ClipCrafter</span>
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="text-gray-600 hover:text-red-400 transition-colors text-sm px-3 py-2 rounded-lg hover:bg-gray-900 min-h-[44px]"
+          title="Delete project"
+        >
+          🗑 Delete
+        </button>
       </header>
 
       <main className="px-4 sm:px-6 py-8 max-w-3xl mx-auto">

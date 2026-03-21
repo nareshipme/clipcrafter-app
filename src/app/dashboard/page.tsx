@@ -31,6 +31,13 @@ export default function DashboardPage() {
     fetchProjects();
   }
 
+  async function handleDelete(id: string) {
+    const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setProjects(prev => prev.filter(p => p.id !== id));
+    }
+  }
+
   function handleModalClose() {
     setModalOpen(false);
     fetchProjects();
@@ -87,6 +94,7 @@ export default function DashboardPage() {
                 key={project.id}
                 project={project}
                 onRetry={handleRetry}
+                onDelete={handleDelete}
               />
             ))}
           </div>

@@ -21,6 +21,7 @@ export interface Project {
 interface ProjectCardProps {
   project: Project;
   onRetry?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const PROCESSING_STATUSES: ProjectStatus[] = [
@@ -49,7 +50,7 @@ function formatRelativeTime(isoString: string): string {
   return `${days} day${days !== 1 ? "s" : ""} ago`;
 }
 
-export default function ProjectCard({ project, onRetry }: ProjectCardProps) {
+export default function ProjectCard({ project, onRetry, onDelete }: ProjectCardProps) {
   const isProcessing = PROCESSING_STATUSES.includes(project.status);
 
   return (
@@ -107,6 +108,20 @@ export default function ProjectCard({ project, onRetry }: ProjectCardProps) {
             className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors min-h-[44px]"
           >
             Retry
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Delete this project? This cannot be undone.")) {
+                onDelete(project.id);
+              }
+            }}
+            className="rounded-lg border border-gray-800 px-3 py-2 text-sm text-gray-500 hover:text-red-400 hover:border-red-900 transition-colors min-h-[44px]"
+            title="Delete project"
+          >
+            🗑
           </button>
         )}
       </div>
