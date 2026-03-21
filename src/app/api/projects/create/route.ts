@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseUserId } from "@/lib/user";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -26,9 +27,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const supabaseUserId = await getSupabaseUserId(userId);
+  if (!supabaseUserId) {
+    return Response.json({ error: "Failed to resolve user" }, { status: 500 });
+  }
+
   const { data, error } = await supabaseAdmin
     .from("projects")
-    .insert({ user_id: userId, title: title.trim(), type, status: "pending" })
+    .insert({ user_id: supabaseUserId, title: title.trim(), type, status: "pending" })
     .select()
     .single();
 

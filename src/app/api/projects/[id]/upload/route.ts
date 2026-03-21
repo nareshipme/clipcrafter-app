@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getPresignedUploadUrl } from "@/lib/r2";
+import { getSupabaseUserId } from "@/lib/user";
 
 export async function POST(
   request: Request,
@@ -9,6 +10,11 @@ export async function POST(
   const { userId } = await auth();
   if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabaseUserId = await getSupabaseUserId(userId);
+  if (!supabaseUserId) {
+    return Response.json({ error: "Failed to resolve user" }, { status: 500 });
   }
 
   const { id } = await params;
@@ -22,7 +28,7 @@ export async function POST(
   if (error || !project) {
     return Response.json({ error: "Project not found" }, { status: 404 });
   }
-  if (project.user_id !== userId) {
+  if (project.user_id !== supabaseUserId) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -33,7 +39,7 @@ export async function POST(
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { filename, contentType } = body as {
+  const { filename } = body as {
     filename?: string;
     contentType?: string;
   };
@@ -42,10 +48,7 @@ export async function POST(
     return Response.json({ error: "filename is required" }, { status: 400 });
   }
 
-  const { uploadUrl, key } = await getPresignedUploadUrl(
-    filename,
-    userId
-  );
+  const { uploadUrl, key } = await getPresignedUploadUrl(filename, userId);
 
   return Response.json({ uploadUrl, key }, { status: 200 });
 }
