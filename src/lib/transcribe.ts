@@ -37,125 +37,98 @@ export async function transcribeAudio(audioPath: string): Promise<TranscriptResu
 
 // ─── Sarvam Saaras v3 Batch API with Diarization ─────────────────────────────
 
+const SARVAM_FILENAME = "audio.mp3";
+
 async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult> {
   if (!SARVAM_API_KEY) throw new Error("SARVAM_API_KEY is not set");
 
-  const headers = { "api-subscription-key": SARVAM_API_KEY, "Content-Type": "application/json" };
+  const jsonHeaders = { "api-subscription-key": SARVAM_API_KEY, "Content-Type": "application/json" };
 
   // Step 1 — Create batch job
   console.log("Sarvam: creating batch job (Saaras v3 + diarization)...");
   const initRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1`, {
     method: "POST",
-    headers,
+    headers: jsonHeaders,
     body: JSON.stringify({
       job_parameters: {
         model: "saaras:v3",
         mode: "transcribe",
-        language_code: "unknown", // auto-detect
+        language_code: "unknown",
         with_diarization: true,
         with_timestamps: true,
       },
     }),
   });
-
-  if (!initRes.ok) {
-    throw new Error(`Sarvam job init failed (${initRes.status}): ${await initRes.text()}`);
-  }
-
+  if (!initRes.ok) throw new Error(`Sarvam job init failed (${initRes.status}): ${await initRes.text()}`);
   const { job_id } = await initRes.json() as { job_id: string };
   console.log(`Sarvam: job created → ${job_id}`);
 
-  // Step 2 — Get upload URL
-  const uploadUrlRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}/files`, {
-    method: "GET",
-    headers: { "api-subscription-key": SARVAM_API_KEY },
+  // Step 2 — Get presigned upload URL
+  const uploadLinksRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/upload-files`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ job_id, files: [SARVAM_FILENAME] }),
   });
+  if (!uploadLinksRes.ok) throw new Error(`Sarvam get upload URLs failed (${uploadLinksRes.status}): ${await uploadLinksRes.text()}`);
 
-  if (!uploadUrlRes.ok) {
-    throw new Error(`Sarvam get upload URL failed (${uploadUrlRes.status}): ${await uploadUrlRes.text()}`);
-  }
+  const uploadData = await uploadLinksRes.json() as {
+    upload_urls: Record<string, { file_url: string }>;
+  };
+  const uploadUrl = uploadData.upload_urls?.[SARVAM_FILENAME]?.file_url;
+  if (!uploadUrl) throw new Error(`Sarvam: no upload URL returned for ${SARVAM_FILENAME}`);
 
-  const uploadData = await uploadUrlRes.json() as { upload_url: string; file_name: string } | { upload_urls: Array<{ upload_url: string; file_name: string }> };
+  // Step 3 — Upload file via presigned PUT
+  const fileBuffer = fs.readFileSync(audioPath);
+  const putRes = await fetch(uploadUrl, {
+    method: "PUT",
+    body: fileBuffer,
+    headers: { "Content-Type": "audio/mpeg" },
+  });
+  if (!putRes.ok) throw new Error(`Sarvam file upload failed (${putRes.status})`);
+  console.log(`Sarvam: uploaded ${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
-  // Handle both single and array response formats
-  const uploadUrl = "upload_url" in uploadData
-    ? uploadData.upload_url
-    : uploadData.upload_urls?.[0]?.upload_url;
-
-  if (!uploadUrl) {
-    // Try the upload files endpoint directly
-    await uploadToSarvam(job_id, audioPath);
-  } else {
-    // PUT directly to the pre-signed URL
-    const fileBuffer = fs.readFileSync(audioPath);
-    const putRes = await fetch(uploadUrl, {
-      method: "PUT",
-      body: fileBuffer,
-      headers: { "Content-Type": "audio/mpeg" },
-    });
-    if (!putRes.ok) throw new Error(`Sarvam file upload failed (${putRes.status})`);
-    console.log(`Sarvam: uploaded ${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB`);
-  }
-
-  // Step 3 — Start the job
+  // Step 4 — Start the job
   const startRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}/start`, {
     method: "POST",
     headers: { "api-subscription-key": SARVAM_API_KEY },
   });
-
-  if (!startRes.ok) {
-    throw new Error(`Sarvam job start failed (${startRes.status}): ${await startRes.text()}`);
-  }
+  if (!startRes.ok) throw new Error(`Sarvam job start failed (${startRes.status}): ${await startRes.text()}`);
   console.log("Sarvam: job started, polling...");
 
-  // Step 4 — Poll for completion (max 10 min)
-  const MAX_WAIT_MS = 10 * 60 * 1000;
-  const POLL_INTERVAL_MS = 5000;
+  // Step 5 — Poll for completion (max 10 min)
   const startTime = Date.now();
-
-  while (Date.now() - startTime < MAX_WAIT_MS) {
-    await sleep(POLL_INTERVAL_MS);
-
+  while (Date.now() - startTime < 10 * 60 * 1000) {
+    await sleep(5000);
     const statusRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}`, {
       headers: { "api-subscription-key": SARVAM_API_KEY },
     });
-
     if (!statusRes.ok) continue;
-
-    const statusData = await statusRes.json() as { job_state: string; error_message?: string };
-    console.log(`Sarvam: job state → ${statusData.job_state}`);
-
-    if (statusData.job_state === "Completed") break;
-    if (statusData.job_state === "Failed") {
-      throw new Error(`Sarvam job failed: ${statusData.error_message ?? "unknown"}`);
-    }
+    const { job_state, error_message } = await statusRes.json() as { job_state: string; error_message?: string };
+    console.log(`Sarvam: job state → ${job_state}`);
+    if (job_state === "Completed") break;
+    if (job_state === "Failed") throw new Error(`Sarvam job failed: ${error_message ?? "unknown"}`);
   }
 
-  // Step 5 — Download results
-  const downloadRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}/outputs`, {
-    headers: { "api-subscription-key": SARVAM_API_KEY },
+  // Step 6 — Get presigned download URLs
+  // Output file is named same as input but with .json extension
+  const outputFileName = SARVAM_FILENAME.replace(/\.[^.]+$/, ".json");
+  const downloadLinksRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/download-files`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ job_id, files: [outputFileName] }),
   });
+  if (!downloadLinksRes.ok) throw new Error(`Sarvam get download URLs failed (${downloadLinksRes.status}): ${await downloadLinksRes.text()}`);
 
-  if (!downloadRes.ok) {
-    throw new Error(`Sarvam download failed (${downloadRes.status}): ${await downloadRes.text()}`);
-  }
-
-  const outputs = await downloadRes.json() as {
-    outputs?: Array<{
-      transcript?: string;
-      diarized_transcript?: {
-        entries: Array<{
-          transcript: string;
-          start_time_seconds: number;
-          end_time_seconds: number;
-          speaker_id: string;
-        }>;
-      };
-    }>;
+  const downloadData = await downloadLinksRes.json() as {
+    download_urls: Record<string, { file_url: string }>;
   };
+  const downloadUrl = downloadData.download_urls?.[outputFileName]?.file_url;
+  if (!downloadUrl) throw new Error(`Sarvam: no download URL returned for ${outputFileName}`);
 
-  const output = outputs.outputs?.[0];
-  if (!output) throw new Error("Sarvam: no output in response");
+  // Step 7 — Fetch the transcript JSON
+  const transcriptRes = await fetch(downloadUrl);
+  if (!transcriptRes.ok) throw new Error(`Sarvam transcript download failed (${transcriptRes.status})`);
+  const output = await transcriptRes.json();
 
   return parseSarvamOutput(output);
 }
@@ -193,31 +166,6 @@ function parseSarvamOutput(output: {
     text: output.transcript ?? "",
     segments: output.transcript ? [{ id: 0, start: 0, end: 0, text: output.transcript }] : [],
   };
-}
-
-async function uploadToSarvam(jobId: string, audioPath: string): Promise<void> {
-  const FormData = (await import("form-data")).default;
-  const form = new FormData();
-  form.append("file", fs.createReadStream(audioPath), {
-    filename: "audio.mp3",
-    contentType: "audio/mpeg",
-  });
-
-  const res = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${jobId}/files`, {
-    method: "POST",
-    headers: {
-      "api-subscription-key": SARVAM_API_KEY,
-      ...form.getHeaders(),
-    },
-    body: form as unknown as BodyInit,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Sarvam file upload failed (${res.status}): ${await res.text()}`);
-  }
-
-  const stats = fs.statSync(audioPath);
-  console.log(`Sarvam: uploaded ${(stats.size / 1024 / 1024).toFixed(1)}MB via multipart`);
 }
 
 function sleep(ms: number) {
