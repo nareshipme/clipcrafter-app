@@ -296,14 +296,27 @@ export function ProjectDetailContent({ id }: { id: string }) {
                     <h2 className="text-lg font-semibold mb-3">📝 Transcript</h2>
                     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 max-h-96 overflow-y-auto">
                       <div className="flex flex-col gap-2">
-                        {(data.transcript.segments as Segment[]).map((seg) => (
-                          <div key={seg.id} className="flex gap-3 text-sm">
-                            <span className="text-gray-500 font-mono text-xs shrink-0 pt-0.5">
-                              {formatTime(seg.start)}
-                            </span>
-                            <p className="text-gray-300">{seg.text}</p>
-                          </div>
-                        ))}
+                        {(data.transcript.segments as Segment[]).map((seg) => {
+                          // Parse speaker label if present: "[Speaker 0] text"
+                          const speakerMatch = seg.text.match(/^\[Speaker (\d+)\]\s*/);
+                          const speakerNum = speakerMatch ? parseInt(speakerMatch[1]) : null;
+                          const text = speakerMatch ? seg.text.slice(speakerMatch[0].length) : seg.text;
+                          const speakerColors = ["text-violet-400","text-blue-400","text-green-400","text-yellow-400","text-pink-400"];
+                          const color = speakerNum !== null ? speakerColors[speakerNum % speakerColors.length] : "text-gray-400";
+                          return (
+                            <div key={seg.id} className="flex gap-3 text-sm">
+                              <span className="text-gray-500 font-mono text-xs shrink-0 pt-0.5 w-10">
+                                {formatTime(seg.start)}
+                              </span>
+                              {speakerNum !== null && (
+                                <span className={`text-xs font-bold shrink-0 pt-0.5 w-16 ${color}`}>
+                                  S{speakerNum}
+                                </span>
+                              )}
+                              <p className="text-gray-300">{text}</p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

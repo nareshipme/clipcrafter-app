@@ -2,12 +2,9 @@
  * Transcription provider abstraction.
  *
  * TRANSCRIPTION_PROVIDER env var:
- *   "sarvam"  → Sarvam AI Saarika (Indian languages, ₹30/hr, ~$0.36/hr) with Modal fallback
- *   "modal"   → faster-whisper on Modal GPU (unlimited, ~$0.004/hr)
- *   "groq"    → Groq Whisper API (default dev option)
- *
- * Sarvam is the recommended primary for Indian language content.
- * Modal is the fallback when Sarvam fails or for non-Indian content.
+ *   "sarvam"  → Sarvam AI Saaras v3 Batch API with diarization (primary)
+ *   "modal"   → faster-whisper on Modal GPU (fallback)
+ *   "groq"    → Groq Whisper API
  */
 
 import { transcribeAudio as groqTranscribeAudio, TranscriptResult } from "@/lib/groq";
@@ -16,26 +13,16 @@ import fs from "fs";
 const PROVIDER = process.env.TRANSCRIPTION_PROVIDER ?? "groq";
 const MODAL_URL = process.env.MODAL_TRANSCRIBE_URL ?? "";
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY ?? "";
-
-// Sarvam supports these Indian languages (BCP-47 codes)
-const SARVAM_LANGUAGES = new Set([
-  "hi-IN", "te-IN", "ta-IN", "kn-IN", "ml-IN",
-  "mr-IN", "gu-IN", "bn-IN", "or-IN", "pa-IN", "ur-IN",
-  "en-IN", "unknown", // unknown = auto-detect
-]);
-
-// Sarvam audio limits: max 60s per REST request → must chunk
-const SARVAM_CHUNK_DURATION_SEC = 55; // 55s per chunk (5s headroom)
-const SARVAM_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB max per request
+const SARVAM_BASE = "https://api.sarvam.ai";
 
 export async function transcribeAudio(audioPath: string): Promise<TranscriptResult> {
   if (PROVIDER === "sarvam") {
     try {
       const result = await transcribeWithSarvam(audioPath);
-      return { ...result, provider: "Sarvam Saarika v2.5" };
+      return { ...result, provider: "Sarvam Saaras v3 (diarization)" };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`Sarvam transcription failed → falling back to Modal: ${msg}`);
+      console.warn(`Sarvam failed → falling back to Modal: ${msg}`);
       const result = await transcribeWithModal(audioPath);
       return { ...result, provider: `Modal faster-whisper (Sarvam fallback: ${msg.slice(0, 80)})` };
     }
@@ -48,171 +35,205 @@ export async function transcribeAudio(audioPath: string): Promise<TranscriptResu
   return { ...result, provider: "Groq Whisper large-v3" };
 }
 
-// ─── Sarvam (Primary for Indian languages) ───────────────────────────────────
+// ─── Sarvam Saaras v3 Batch API with Diarization ─────────────────────────────
 
 async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult> {
   if (!SARVAM_API_KEY) throw new Error("SARVAM_API_KEY is not set");
 
-  const { execFile } = await import("child_process");
-  const { promisify } = await import("util");
-  const { default: path } = await import("path");
-  const { default: os } = await import("os");
-  const execFileAsync = promisify(execFile);
+  const headers = { "api-subscription-key": SARVAM_API_KEY, "Content-Type": "application/json" };
 
-  // Get audio duration
-  const { stdout } = await execFileAsync("ffprobe", [
-    "-v", "error",
-    "-show_entries", "format=duration",
-    "-of", "default=noprint_wrappers=1:nokey=1",
-    audioPath,
-  ]);
-  const durationSec = parseFloat(stdout.trim());
+  // Step 1 — Create batch job
+  console.log("Sarvam: creating batch job (Saaras v3 + diarization)...");
+  const initRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      job_parameters: {
+        model: "saaras:v3",
+        mode: "transcribe",
+        language_code: "unknown", // auto-detect
+        with_diarization: true,
+        with_timestamps: true,
+      },
+    }),
+  });
 
-  const stats = fs.statSync(audioPath);
-  const needsChunking = durationSec > SARVAM_CHUNK_DURATION_SEC || stats.size > SARVAM_MAX_FILE_SIZE;
-
-  if (!needsChunking) {
-    console.log(`Transcribing ${durationSec.toFixed(1)}s audio with Sarvam directly`);
-    return transcribeSarvamChunk(audioPath, 0);
+  if (!initRes.ok) {
+    throw new Error(`Sarvam job init failed (${initRes.status}): ${await initRes.text()}`);
   }
 
-  // Split into chunks
-  const numChunks = Math.ceil(durationSec / SARVAM_CHUNK_DURATION_SEC);
-  console.log(`Sarvam: splitting ${durationSec.toFixed(1)}s into ${numChunks} chunks of ${SARVAM_CHUNK_DURATION_SEC}s`);
+  const { job_id } = await initRes.json() as { job_id: string };
+  console.log(`Sarvam: job created → ${job_id}`);
 
-  const base = path.basename(audioPath, ".mp3");
-  const dir = path.dirname(audioPath);
-  const pattern = path.join(dir, `${base}-sarvam-%03d.mp3`);
+  // Step 2 — Get upload URL
+  const uploadUrlRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}/files`, {
+    method: "GET",
+    headers: { "api-subscription-key": SARVAM_API_KEY },
+  });
 
-  await execFileAsync("ffmpeg", [
-    "-i", audioPath,
-    "-f", "segment",
-    "-segment_time", String(SARVAM_CHUNK_DURATION_SEC),
-    "-ar", "16000",
-    "-ac", "1",
-    "-b:a", "32k",
-    "-reset_timestamps", "1",
-    "-y",
-    pattern,
-  ]);
-
-  const chunkFiles: string[] = [];
-  let i = 0;
-  while (true) {
-    const p = path.join(dir, `${base}-sarvam-${String(i).padStart(3, "0")}.mp3`);
-    if (!fs.existsSync(p)) break;
-    chunkFiles.push(p);
-    i++;
+  if (!uploadUrlRes.ok) {
+    throw new Error(`Sarvam get upload URL failed (${uploadUrlRes.status}): ${await uploadUrlRes.text()}`);
   }
 
-  const results: TranscriptResult[] = [];
-  for (let idx = 0; idx < chunkFiles.length; idx++) {
-    const offsetSec = idx * SARVAM_CHUNK_DURATION_SEC;
-    console.log(`Sarvam: chunk ${idx + 1}/${chunkFiles.length} (offset ${offsetSec}s)`);
-    const result = await transcribeSarvamChunk(chunkFiles[idx], offsetSec);
-    results.push(result);
-    fs.unlink(chunkFiles[idx], () => undefined);
+  const uploadData = await uploadUrlRes.json() as { upload_url: string; file_name: string } | { upload_urls: Array<{ upload_url: string; file_name: string }> };
+
+  // Handle both single and array response formats
+  const uploadUrl = "upload_url" in uploadData
+    ? uploadData.upload_url
+    : uploadData.upload_urls?.[0]?.upload_url;
+
+  if (!uploadUrl) {
+    // Try the upload files endpoint directly
+    await uploadToSarvam(job_id, audioPath);
+  } else {
+    // PUT directly to the pre-signed URL
+    const fileBuffer = fs.readFileSync(audioPath);
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      body: fileBuffer,
+      headers: { "Content-Type": "audio/mpeg" },
+    });
+    if (!putRes.ok) throw new Error(`Sarvam file upload failed (${putRes.status})`);
+    console.log(`Sarvam: uploaded ${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB`);
   }
 
-  const allSegments = results.flatMap(r => r.segments).map((s, idx) => ({ ...s, id: idx }));
+  // Step 3 — Start the job
+  const startRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}/start`, {
+    method: "POST",
+    headers: { "api-subscription-key": SARVAM_API_KEY },
+  });
+
+  if (!startRes.ok) {
+    throw new Error(`Sarvam job start failed (${startRes.status}): ${await startRes.text()}`);
+  }
+  console.log("Sarvam: job started, polling...");
+
+  // Step 4 — Poll for completion (max 10 min)
+  const MAX_WAIT_MS = 10 * 60 * 1000;
+  const POLL_INTERVAL_MS = 5000;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < MAX_WAIT_MS) {
+    await sleep(POLL_INTERVAL_MS);
+
+    const statusRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}`, {
+      headers: { "api-subscription-key": SARVAM_API_KEY },
+    });
+
+    if (!statusRes.ok) continue;
+
+    const statusData = await statusRes.json() as { job_state: string; error_message?: string };
+    console.log(`Sarvam: job state → ${statusData.job_state}`);
+
+    if (statusData.job_state === "Completed") break;
+    if (statusData.job_state === "Failed") {
+      throw new Error(`Sarvam job failed: ${statusData.error_message ?? "unknown"}`);
+    }
+  }
+
+  // Step 5 — Download results
+  const downloadRes = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${job_id}/outputs`, {
+    headers: { "api-subscription-key": SARVAM_API_KEY },
+  });
+
+  if (!downloadRes.ok) {
+    throw new Error(`Sarvam download failed (${downloadRes.status}): ${await downloadRes.text()}`);
+  }
+
+  const outputs = await downloadRes.json() as {
+    outputs?: Array<{
+      transcript?: string;
+      diarized_transcript?: {
+        entries: Array<{
+          transcript: string;
+          start_time_seconds: number;
+          end_time_seconds: number;
+          speaker_id: string;
+        }>;
+      };
+    }>;
+  };
+
+  const output = outputs.outputs?.[0];
+  if (!output) throw new Error("Sarvam: no output in response");
+
+  return parseSarvamOutput(output);
+}
+
+function parseSarvamOutput(output: {
+  transcript?: string;
+  diarized_transcript?: {
+    entries: Array<{
+      transcript: string;
+      start_time_seconds: number;
+      end_time_seconds: number;
+      speaker_id: string;
+    }>;
+  };
+}): TranscriptResult {
+  const diarized = output.diarized_transcript?.entries ?? [];
+
+  if (diarized.length > 0) {
+    const segments = diarized.map((entry, i) => ({
+      id: i,
+      start: entry.start_time_seconds,
+      end: entry.end_time_seconds,
+      text: `[Speaker ${entry.speaker_id}] ${entry.transcript}`,
+      speaker: entry.speaker_id,
+    }));
+
+    return {
+      text: diarized.map(e => `[Speaker ${e.speaker_id}] ${e.transcript}`).join(" "),
+      segments,
+    };
+  }
+
+  // Fallback: no diarization in output
   return {
-    text: results.map(r => r.text).join(" "),
-    segments: allSegments,
+    text: output.transcript ?? "",
+    segments: output.transcript ? [{ id: 0, start: 0, end: 0, text: output.transcript }] : [],
   };
 }
 
-async function transcribeSarvamChunk(audioPath: string, offsetSec: number): Promise<TranscriptResult> {
+async function uploadToSarvam(jobId: string, audioPath: string): Promise<void> {
   const FormData = (await import("form-data")).default;
   const form = new FormData();
   form.append("file", fs.createReadStream(audioPath), {
     filename: "audio.mp3",
     contentType: "audio/mpeg",
   });
-  form.append("model", "saarika:v2.5");
-  form.append("language_code", "unknown"); // auto-detect
-  form.append("with_timestamps", "true");
 
-  const res = await fetch("https://api.sarvam.ai/speech-to-text", {
+  const res = await fetch(`${SARVAM_BASE}/speech-to-text/job/v1/${jobId}/files`, {
     method: "POST",
     headers: {
       "api-subscription-key": SARVAM_API_KEY,
       ...form.getHeaders(),
     },
     body: form as unknown as BodyInit,
-    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Sarvam STT failed (${res.status}): ${err}`);
-  }
-
-  const data = await res.json() as {
-    transcript: string;
-    timestamps?: Array<{ word: string; start: number; end: number }>;
-  };
-
-  // Sarvam returns word-level timestamps — group into segments by pause
-  const segments = buildSegmentsFromWords(data.timestamps ?? [], offsetSec);
-
-  console.log(`Sarvam transcribed chunk: "${data.transcript.slice(0, 60)}..."`);
-
-  return {
-    text: data.transcript,
-    segments,
-  };
-}
-
-function buildSegmentsFromWords(
-  words: Array<{ word: string; start: number; end: number }>,
-  offsetSec: number
-): Array<{ id: number; start: number; end: number; text: string }> {
-  if (!words.length) return [];
-
-  const PAUSE_THRESHOLD = 1.5; // group words separated by < 1.5s into same segment
-  const segments: Array<{ id: number; start: number; end: number; text: string }> = [];
-  let current: typeof words = [];
-
-  for (const word of words) {
-    if (current.length > 0) {
-      const gap = word.start - current[current.length - 1].end;
-      if (gap > PAUSE_THRESHOLD) {
-        segments.push({
-          id: segments.length,
-          start: current[0].start + offsetSec,
-          end: current[current.length - 1].end + offsetSec,
-          text: current.map(w => w.word).join(" "),
-        });
-        current = [];
-      }
-    }
-    current.push(word);
-  }
-
-  if (current.length > 0) {
-    segments.push({
-      id: segments.length,
-      start: current[0].start + offsetSec,
-      end: current[current.length - 1].end + offsetSec,
-      text: current.map(w => w.word).join(" "),
-    });
-  }
-
-  return segments;
-}
-
-// ─── Modal (Fallback / Primary for non-Indian content) ────────────────────────
-
-async function transcribeWithModal(audioPath: string): Promise<TranscriptResult> {
-  if (!MODAL_URL) {
-    throw new Error("MODAL_TRANSCRIBE_URL is not set. Deploy the Modal app first.");
+    throw new Error(`Sarvam file upload failed (${res.status}): ${await res.text()}`);
   }
 
   const stats = fs.statSync(audioPath);
-  const MAX_BASE64_BYTES = 10 * 1024 * 1024;
+  console.log(`Sarvam: uploaded ${(stats.size / 1024 / 1024).toFixed(1)}MB via multipart`);
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ─── Modal (Fallback) ─────────────────────────────────────────────────────────
+
+async function transcribeWithModal(audioPath: string): Promise<TranscriptResult> {
+  if (!MODAL_URL) throw new Error("MODAL_TRANSCRIBE_URL is not set.");
+
+  const stats = fs.statSync(audioPath);
+  const MAX_BASE64 = 10 * 1024 * 1024;
 
   let audioUrl: string;
-  if (stats.size <= MAX_BASE64_BYTES) {
+  if (stats.size <= MAX_BASE64) {
     const data = fs.readFileSync(audioPath);
     audioUrl = `data:audio/mpeg;base64,${data.toString("base64")}`;
   } else {
@@ -222,29 +243,22 @@ async function transcribeWithModal(audioPath: string): Promise<TranscriptResult>
   const res = await fetch(MODAL_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      audio_url: audioUrl,
-      model_size: process.env.WHISPER_MODEL_SIZE ?? "large-v3",
-    }),
+    body: JSON.stringify({ audio_url: audioUrl, model_size: process.env.WHISPER_MODEL_SIZE ?? "large-v3" }),
     signal: AbortSignal.timeout(600_000),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Modal transcription failed (${res.status}): ${err}`);
-  }
+  if (!res.ok) throw new Error(`Modal failed (${res.status}): ${await res.text()}`);
 
   const result = await res.json() as {
     text: string;
     segments: Array<{ id: number; start: number; end: number; text: string }>;
-    language: string;
     duration: number;
     elapsed_sec: number;
     realtime_factor: number;
     model: string;
   };
 
-  console.log(`Modal: ${result.duration}s audio → ${result.elapsed_sec}s (${result.realtime_factor}x, model: ${result.model})`);
+  console.log(`Modal: ${result.duration}s audio → ${result.elapsed_sec}s (${result.realtime_factor}x, ${result.model})`);
 
   return {
     text: result.text,
@@ -259,13 +273,9 @@ async function uploadToR2ForModal(audioPath: string): Promise<string> {
   const path = await import("path");
 
   const key = `modal-tmp/${Date.now()}-${path.basename(audioPath)}`;
-  const fileBuffer = fs.readFileSync(audioPath);
-
-  await r2Client.send(new PutObjectCommand({
-    Bucket: R2_BUCKET, Key: key, Body: fileBuffer, ContentType: "audio/mpeg",
-  }));
-
+  const buf = fs.readFileSync(audioPath);
+  await r2Client.send(new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, Body: buf, ContentType: "audio/mpeg" }));
   const url = await getSignedUrl(r2Client, new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }), { expiresIn: 3600 });
-  console.log(`Uploaded ${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB to R2 for Modal`);
+  console.log(`Uploaded ${(buf.length / 1024 / 1024).toFixed(1)}MB to R2 for Modal`);
   return url;
 }
