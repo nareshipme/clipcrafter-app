@@ -34,3 +34,13 @@ Modules that could be extracted and open sourced independently.
 ## Notes
 - When a module is ready, extract to `packages/<name>` with its own `package.json`
 - Publish to npm under `@toolnexus/<name>` or as standalone
+
+## Updated 2026-03-21
+
+| Module | Location | Description | Blocker |
+|--------|----------|-------------|---------|
+| Transcription Provider Abstraction | `src/lib/transcribe.ts` | Multi-provider STT with Sarvam/Modal/Groq fallback chain | Needs env config docs; provider-agnostic enough to be useful |
+| Audio Chunker | `src/lib/groq.ts` (transcribeAudio) | Auto-chunk long audio for APIs with size limits; ffmpeg-based | Extract into standalone `chunk-audio` util |
+| Gemini Model Fallback | `src/lib/gemini.ts` | Try model list in order, retry on deprecated/404 errors | Could be a generic "model-with-fallback" pattern for any LLM |
+| Processing Logger | `src/inngest/functions/process-video.ts` (makeLogger) | Step-by-step job logger that flushes to DB at end | Extract into reusable Inngest middleware |
+| Supabase User Resolver | `src/lib/user.ts` | get-or-create Supabase user from Clerk ID | Too project-specific currently; needs generalisation |

@@ -151,3 +151,58 @@ Bugs found during ClipCrafter development. Post-worthy ones get turned into dev.
 **Post-worthy:** No (rate limit issue, not a code bug)
 
 ---
+
+## 2026-03-21 — Sarvam Batch API wrong endpoints (404)
+
+**Symptom:** `Sarvam get upload URL failed (404)` — Sarvam job was created but upload failed.
+
+**Root cause:** Used wrong REST endpoints guessed from patterns:
+- Wrong: `GET /speech-to-text/job/v1/{job_id}/files`
+- Wrong: `GET /speech-to-text/job/v1/{job_id}/outputs`
+
+The correct Sarvam Batch API flow (from docs) is:
+1. `POST /job/v1` → create job
+2. `POST /job/v1/upload-files` with `{job_id, files: [...]}` → get presigned PUT URLs
+3. `PUT` to presigned URL with file bytes
+4. `POST /job/v1/{job_id}/start`
+5. `GET /job/v1/{job_id}` → poll until `Completed`
+6. `POST /job/v1/download-files` with `{job_id, files: [...]}` → get presigned GET URLs
+7. `GET` download URL → fetch output JSON
+
+**Fix:** Rewrote `transcribeWithSarvam()` with correct endpoints.
+
+**Files:** `src/lib/transcribe.ts`
+
+**Post-worthy:** Yes — "Sarvam AI Batch API: the correct upload/download flow (with Node.js examples)"
+
+---
+
+## 2026-03-21 — Inngest step isolation: temp paths must be stable (Date.now() problem)
+
+**Symptom:** Step 2 (extract audio) failed with `ffmpeg: No such file or directory`. File existed after Step 1 but was missing in Step 2.
+
+**Root cause:** Inngest runs each step in a separate HTTP invocation. `Date.now()` re-evaluates on each invocation, so `/tmp/video-ABC.mp4` in Step 1 became `/tmp/video-XYZ.mp4` in Step 2.
+
+**Fix:** Switched to `/tmp/clipcrafter-video-{projectId}.mp4` — stable across all steps.
+
+**Files:** `src/inngest/functions/process-video.ts`
+
+**Post-worthy:** Yes — "The Inngest temp file trap: why your files disappear between steps"
+
+---
+
+## 2026-03-21 — Whisper hallucination on live stream background audio
+
+**Symptom:** Transcript showed "నేన్ ఒక రూపాయ్ గుడా బోందలేదు" repeated 50+ times.
+
+**Root cause:** Whisper (all variants) hallucinates when it encounters silence or background music — it loops a recent phrase. Live streams have long stretches of background audio which trigger this.
+
+**Fix (workaround):** Use Sarvam Saarika/Saaras instead of Whisper for Indian language content — purpose-built, handles Indian audio patterns better. Also avoid live streams; use regular YouTube videos.
+
+**Long-term fix:** Add VAD (voice activity detection) pass before transcription to strip non-speech segments.
+
+**Files:** N/A (Sarvam migration addresses this)
+
+**Post-worthy:** Yes — "Whisper hallucination on silence: why your transcript loops the same phrase"
+
+---
