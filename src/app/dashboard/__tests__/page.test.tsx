@@ -72,7 +72,7 @@ describe("Dashboard page", () => {
     });
     render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getByText(/upload your first video/i)).toBeInTheDocument();
+      expect(screen.getByText(/no projects yet/i)).toBeInTheDocument();
     });
   });
 
