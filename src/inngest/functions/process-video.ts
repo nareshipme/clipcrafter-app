@@ -99,6 +99,57 @@ export async function processVideoHandler(
   let highlightId: string | undefined;
 
   try {
+    // Check if this project already has a transcript (reused from another project)
+    const { data: projectData } = await supabaseAdmin
+      .from("projects")
+      .select("status, audio_key")
+      .eq("id", projectId)
+      .single();
+
+    const hasExistingTranscript = projectData?.status === "transcribed";
+
+    if (hasExistingTranscript) {
+      // Skip straight to highlights — audio + transcript already cloned
+      const { data: existingTranscript } = await supabaseAdmin
+        .from("transcripts")
+        .select("id, segments")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      transcriptId = existingTranscript?.id;
+      logger.log({ step: "download", provider: "skipped (reused)", status: "ok" });
+      logger.log({ step: "extract-audio", provider: "skipped (reused)", status: "ok" });
+      logger.log({ step: "transcribe", provider: "skipped (reused)", detail: `${existingTranscript?.segments?.length ?? 0} segments`, status: "ok" });
+
+      // Jump straight to highlights
+      await step.run("generate-highlights", async () => {
+        await updateProjectStatus(projectId, { status: "generating_highlights" });
+        const transcriptText = Array.isArray(existingTranscript?.segments)
+          ? (existingTranscript.segments as Array<{ text: string }>).map(s => s.text).join(" ")
+          : "";
+        const highlights = await generateHighlights(transcriptText);
+        const hlProvider = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
+        logger.log({ step: "generate-highlights", provider: hlProvider, detail: `${highlights.length} highlights`, status: "ok" });
+
+        const { data } = await supabaseAdmin
+          .from("highlights")
+          .insert({ project_id: projectId, segments: highlights })
+          .select()
+          .single();
+        highlightId = (data as { id: string } | null)?.id;
+      });
+
+      await step.run("finalize", async () => {
+        logger.log({ step: "finalize", provider: "system", status: "ok" });
+        await logger.flush();
+        await updateProjectStatus(projectId, { status: "completed", completed_at: new Date().toISOString() });
+      });
+
+      return { projectId, status: "completed", transcriptId, highlightId, processingLog: logger.getEntries() };
+    }
+
     // Step 1 — download video (R2 or YouTube)
     await step.run("download-from-r2", async () => {
       await updateProjectStatus(projectId, { status: "processing" });
