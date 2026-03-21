@@ -67,3 +67,31 @@ Bugs found during ClipCrafter development. Post-worthy ones get turned into dev.
 **Post-worthy:** Yes (bundle with Inngest middleware bug above into one post)
 
 ---
+
+## 2026-03-21 — Inngest v4 SDK bug: triggers not included in function manifest
+
+**Symptom:** Inngest dev server showed `triggers: []` for the `process-video` function. Events were received but the function never executed.
+
+**Root cause:** Inngest SDK v4.0.2 has a regression where the `triggers` array is empty in the manifest sent during sync, even when `createFunction` correctly defines `{ event: "video/process" }`. The dev server sees the function but doesn't know which events to route to it.
+
+**Fix:** Downgraded `inngest` from v4.0.2 to v3.52.7. Triggers now correctly appear in the manifest.
+
+**Files:** `package.json`, `package-lock.json`
+
+**Post-worthy:** Yes — "Inngest SDK v4 gotcha: empty triggers in dev server (and how to fix it)"
+
+---
+
+## 2026-03-21 — Inngest step isolation: temp file paths must be stable across steps
+
+**Symptom:** Step 1 (download video) succeeded, but Step 2 (extract audio) failed with `ffmpeg: No such file or directory`. The file existed after Step 1 but was missing in Step 2.
+
+**Root cause:** Inngest runs each step in a separate HTTP invocation (fresh execution context). Variables like `Date.now()` re-evaluate on every step call, so the temp file path generated in Step 1 was different from the path generated in Step 2. The file was downloaded to `/tmp/video-ABC.mp4` but Step 2 looked for `/tmp/video-XYZ.mp4`.
+
+**Fix:** Changed temp file paths to use `projectId` (stable across all steps): `/tmp/clipcrafter-video-{projectId}.mp4`.
+
+**Files:** `src/inngest/functions/process-video.ts`
+
+**Post-worthy:** Yes — "The Inngest temp file trap: why your files disappear between steps"
+
+---
