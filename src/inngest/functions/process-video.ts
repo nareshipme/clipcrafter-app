@@ -9,7 +9,7 @@ import { inngest } from "@/lib/inngest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { transcribeAudio } from "@/lib/transcribe";
-import { generateHighlights } from "@/lib/gemini";
+import { generateHighlights } from "@/lib/highlights";
 
 const execFileAsync = promisify(execFile);
 
@@ -135,11 +135,9 @@ export async function processVideoHandler(
     // Step 3 — transcribe
     const transcript = await step.run("transcribe", async () => {
       await updateProjectStatus(projectId, { status: "transcribing" });
-      const provider = process.env.TRANSCRIPTION_PROVIDER ?? "groq";
-      logger.log({ step: "transcribe", provider: `${provider} (attempting)`, status: "ok" });
+      logger.log({ step: "transcribe", provider: "Sarvam Saaras v3", status: "ok" });
       const result = await transcribeAudio(audioPath);
-      // transcribe.ts logs which provider actually ran (including fallback)
-      logger.log({ step: "transcribe", provider: result.provider ?? provider, detail: `${result.segments.length} segments`, status: "ok" });
+      logger.log({ step: "transcribe", provider: result.provider ?? "Sarvam Saaras v3", detail: `${result.segments.length} segments`, status: "ok" });
 
       const { data } = await supabaseAdmin
         .from("transcripts")
@@ -157,7 +155,8 @@ export async function processVideoHandler(
       const highlights = await generateHighlights(
         (transcript as { text: string }).text
       );
-      logger.log({ step: "generate-highlights", provider: `Gemini (${process.env.GEMINI_MODEL ?? "2.5-flash fallback chain"})`, detail: `${highlights.length} highlights`, status: "ok" });
+      const hlProvider = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
+      logger.log({ step: "generate-highlights", provider: hlProvider, detail: `${highlights.length} highlights`, status: "ok" });
 
       const { data } = await supabaseAdmin
         .from("highlights")
