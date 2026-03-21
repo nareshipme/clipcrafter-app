@@ -31,12 +31,39 @@ export async function GET(
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Include transcript + highlights when completed
+  let transcript = null;
+  let highlights = null;
+
+  if (project.status === "completed") {
+    const [tResult, hResult] = await Promise.all([
+      supabaseAdmin
+        .from("transcripts")
+        .select("id, segments")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single(),
+      supabaseAdmin
+        .from("highlights")
+        .select("id, segments")
+        .eq("project_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
+    if (tResult.data) transcript = tResult.data;
+    if (hResult.data) highlights = hResult.data;
+  }
+
   return Response.json(
     {
       id: project.id,
       status: project.status,
       error_message: project.error_message ?? null,
       completed_at: project.completed_at ?? null,
+      transcript,
+      highlights,
     },
     { status: 200 }
   );

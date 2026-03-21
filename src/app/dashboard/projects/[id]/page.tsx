@@ -12,14 +12,36 @@ type ProjectStatus =
   | "completed"
   | "failed";
 
+interface Segment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+interface Highlight {
+  start: number;
+  end: number;
+  text: string;
+  reason: string;
+}
+
 interface StatusData {
   id: string;
   status: ProjectStatus;
   error_message: string | null;
   completed_at: string | null;
+  transcript: { id: string; segments: Segment[] } | null;
+  highlights: { id: string; segments: Highlight[] } | null;
 }
 
 const TERMINAL_STATUSES: ProjectStatus[] = ["completed", "failed"];
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 const STAGES = [
   { label: "Downloading video" },
@@ -201,6 +223,55 @@ export function ProjectDetailContent({ id }: { id: string }) {
             {data.status === "pending" && (
               <div className="text-gray-400 text-sm">
                 Project is queued and will begin processing shortly.
+              </div>
+            )}
+
+            {/* Completed — transcript + highlights */}
+            {data.status === "completed" && (
+              <div className="flex flex-col gap-6 mt-2">
+
+                {/* Highlights */}
+                {data.highlights?.segments?.length ? (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-3">✨ Highlights</h2>
+                    <div className="flex flex-col gap-3">
+                      {(data.highlights.segments as Highlight[]).map((h, i) => (
+                        <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-violet-400 font-mono">
+                              {formatTime(h.start)} → {formatTime(h.end)}
+                            </span>
+                          </div>
+                          <p className="text-white text-sm font-medium mb-1">&ldquo;{h.text}&rdquo;</p>
+                          <p className="text-gray-400 text-xs">{h.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-500 text-sm">No highlights generated.</div>
+                )}
+
+                {/* Transcript */}
+                {data.transcript?.segments?.length ? (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-3">📝 Transcript</h2>
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 max-h-96 overflow-y-auto">
+                      <div className="flex flex-col gap-2">
+                        {(data.transcript.segments as Segment[]).map((seg) => (
+                          <div key={seg.id} className="flex gap-3 text-sm">
+                            <span className="text-gray-500 font-mono text-xs shrink-0 pt-0.5">
+                              {formatTime(seg.start)}
+                            </span>
+                            <p className="text-gray-300">{seg.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-500 text-sm">No transcript available.</div>
+                )}
               </div>
             )}
           </div>
