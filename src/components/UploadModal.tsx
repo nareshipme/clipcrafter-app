@@ -121,10 +121,7 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
       setYoutubeError("Please enter a valid YouTube URL");
       return;
     }
-    if (isYouTubeLive(youtubeUrl)) {
-      setYoutubeError("Live streams aren't supported — please use a regular YouTube video URL (youtube.com/watch?v=...)");
-      return;
-    }
+
     setStep("creating");
     setErrorMsg("");
     try {

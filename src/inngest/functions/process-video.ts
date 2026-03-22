@@ -60,9 +60,8 @@ async function downloadYouTubeVideo(url: string, outputPath: string): Promise<vo
     "--merge-output-format", "mp4",
     "--output", outputPath,
     "--no-playlist",
-    // Use Chrome cookies to bypass YouTube bot-detection on server/Inngest
     "--cookies-from-browser", "chrome",
-    // Hard timeout — never hang forever
+    "--extractor-args", "youtube:player_client=web,android",
     "--socket-timeout", "30",
     url,
   ], { timeout: 5 * 60 * 1000 }); // 5 min max, throws if exceeded
