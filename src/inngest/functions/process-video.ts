@@ -126,10 +126,13 @@ export async function processVideoHandler(
       // Jump straight to highlights
       await step.run("generate-highlights", async () => {
         await updateProjectStatus(projectId, { status: "generating_highlights" });
-        const transcriptText = Array.isArray(existingTranscript?.segments)
-          ? formatSegmentsForHighlights(existingTranscript.segments as Array<{ start: number; end: number; text: string }>)
-          : "";
-        const highlights = await generateHighlights(transcriptText);
+        const existingSegs = Array.isArray(existingTranscript?.segments)
+          ? existingTranscript.segments as Array<{ start: number; end: number; text: string }>
+          : [];
+        const highlights = await generateHighlights(
+          formatSegmentsForHighlights(existingSegs),
+          existingSegs
+        );
         const hlProvider = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
         logger.log({ step: "generate-highlights", provider: hlProvider, detail: `${highlights.length} highlights`, status: "ok" });
 
@@ -218,8 +221,10 @@ export async function processVideoHandler(
     await step.run("generate-highlights", async () => {
       await updateProjectStatus(projectId, { status: "generating_highlights" });
       const transcriptResult = transcript as { text: string; segments: Array<{ start: number; end: number; text: string }> };
+      const segs = transcriptResult.segments ?? [];
       const highlights = await generateHighlights(
-        formatSegmentsForHighlights(transcriptResult.segments ?? [])
+        formatSegmentsForHighlights(segs),
+        segs
       );
       const hlProvider = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
       logger.log({ step: "generate-highlights", provider: hlProvider, detail: `${highlights.length} highlights`, status: "ok" });
