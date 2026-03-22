@@ -14,6 +14,10 @@ export interface Highlight {
   end: number;
   text: string;
   reason: string;
+  score: number;
+  score_reason: string;
+  hashtags: string[];
+  clip_title: string;
 }
 
 const PROVIDER = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
@@ -22,8 +26,24 @@ const SARVAM_API_KEY = process.env.SARVAM_API_KEY ?? "";
 const HIGHLIGHTS_PROMPT = (transcript: string) => `
 You are a video content analyst. Given the following transcript, extract the top 5 most engaging and highlight-worthy moments.
 
+Score each highlight 0-100 using this rubric:
+- Hook strength (first 3 seconds of text): 30pts
+- Emotional punch: 20pts
+- Keyword density: 15pts
+- Quotability: 20pts
+- Actionability: 15pts
+
 Return ONLY a valid JSON array with no markdown, no extra text. Format:
-[{ "start": <seconds>, "end": <seconds>, "text": "<quote>", "reason": "<why it's engaging>" }]
+[{
+  "start": <seconds>,
+  "end": <seconds>,
+  "text": "<quote>",
+  "reason": "<why it's engaging>",
+  "score": <0-100 integer>,
+  "score_reason": "<brief scoring justification>",
+  "hashtags": ["<tag1>", "<tag2>", "<tag3>"],
+  "clip_title": "<punchy 5-8 word title for this clip>"
+}]
 
 Transcript:
 ${transcript}
