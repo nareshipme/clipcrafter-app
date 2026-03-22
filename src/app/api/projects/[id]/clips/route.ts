@@ -99,6 +99,7 @@ export async function POST(
     score_reason: h.score_reason ?? null,
     hashtags: h.hashtags ?? [],
     clip_title: h.clip_title ?? h.text.slice(0, 60),
+    topic: (h as { topic?: string }).topic ?? null,
     status: "pending",
     caption_style: "hormozi",
     aspect_ratio: "9:16",

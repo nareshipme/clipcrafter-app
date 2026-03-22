@@ -1,15 +1,14 @@
 /**
- * Highlights generation — two-pass approach (same as original toolnexus):
+ * Highlights generation — two modes:
  *
- * Pass 1 (Gemini): timestamped transcript → list of "MM:SS, MM:SS" time ranges
- *   - Simple output format, Gemini just picks timestamps that already exist in the transcript
- *   - No JSON pressure, no hallucinated floats
+ * MANUAL (count=N): two-pass
+ *   Pass 1: transcript → N "MM:SS, MM:SS" ranges
+ *   Pass 2: enrich each with score/hashtags/title
  *
- * Pass 2 (Gemini): for each confirmed segment, generate score/reason/hashtags/clip_title
- *   - Enrichment only, timestamps are already locked from Pass 1
- *
- * HIGHLIGHTS_PROVIDER env var:
- *   "gemini"  → Gemini 2.0-flash for Pass 1, 2.5-flash for Pass 2 (default)
+ * AUTO (count=undefined): topic-first three-pass
+ *   Pass 1: transcript → discover distinct topics the speaker covers
+ *   Pass 2: per topic → find best 30-90s clip (parallel)
+ *   Pass 3: enrich each clip
  */
 
 export interface Highlight {
@@ -21,6 +20,7 @@ export interface Highlight {
   score_reason: string;
   hashtags: string[];
   clip_title: string;
+  topic?: string; // only set in auto mode
 }
 
 export interface TranscriptSegmentInput {
@@ -52,7 +52,7 @@ function parseMMSS(str: string): number {
 // ─── Pass 1: find time ranges ─────────────────────────────────────────────────
 
 export interface HighlightOptions {
-  count?: number;          // number of highlights to extract (default 5)
+  count?: number;          // number of highlights. undefined = Auto (topic-first)
   prompt?: string;         // custom search query, e.g. "moments about AI"
   targetDuration?: number; // total combined duration in seconds, e.g. 60
 }
@@ -120,7 +120,12 @@ export async function generateHighlights(
 ): Promise<Highlight[]> {
   if (!formattedTranscript) throw new Error("transcript is required");
 
-  // Pass 1: get accurate time ranges
+  // Auto mode — topic-first pipeline
+  if (opts?.count === undefined && !opts?.prompt) {
+    return generateAutoHighlights(formattedTranscript, rawSegments);
+  }
+
+  // Manual mode — fixed count
   const timeRanges = await findTimeRanges(formattedTranscript, opts);
 
   if (timeRanges.length === 0) {
@@ -256,4 +261,110 @@ async function enrichSegments(
   }
 
   throw new Error("All Gemini models failed for highlights enrichment");
+}
+
+// ─── Auto mode: topic-first pipeline ─────────────────────────────────────────
+
+const DISCOVER_TOPICS_PROMPT = (transcript: string) => `You are analyzing a video transcript to find distinct topics.
+
+Transcript:
+${transcript}
+
+List every distinct topic, theme, or subject the speaker covers. Be specific — "AI replacing jobs" is better than "AI".
+Return ONLY a JSON array of short topic strings (3-6 words each). No markdown, no explanation.
+Example: ["AI replacing creative jobs", "how to future-proof your career", "tools creators should learn now"]`;
+
+const CLIP_FOR_TOPIC_PROMPT = (transcript: string, topic: string) => `You are a video editor finding the best clip for a social media reel.
+
+Topic to find: "${topic}"
+
+Transcript:
+${transcript}
+
+Find the single best 30–90 second clip that covers this topic most clearly and engagingly.
+Return ONLY one line: MM:SS, MM:SS
+If the topic isn't covered, return: NONE`;
+
+async function discoverTopics(transcript: string): Promise<string[]> {
+  const genAI = (await import("@google/generative-ai").then(m => new m.GoogleGenerativeAI(process.env.GEMINI_API_KEY!)));
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const result = await model.generateContent(DISCOVER_TOPICS_PROMPT(transcript));
+  const raw = result.response.text().replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  try {
+    const topics = JSON.parse(raw) as string[];
+    return topics.filter(t => typeof t === "string" && t.trim()).slice(0, 12); // cap at 12
+  } catch {
+    // fallback: parse line-by-line if not valid JSON
+    return raw.split("\n").map(l => l.replace(/^[-*"\d.\s]+/, "").trim()).filter(Boolean).slice(0, 12);
+  }
+}
+
+async function findClipForTopic(transcript: string, topic: string): Promise<{ start: number; end: number; topic: string } | null> {
+  try {
+    const genAI = (await import("@google/generative-ai").then(m => new m.GoogleGenerativeAI(process.env.GEMINI_API_KEY!)));
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(CLIP_FOR_TOPIC_PROMPT(transcript, topic));
+    const raw = result.response.text().trim();
+    if (raw === "NONE" || !raw) return null;
+    const match = raw.match(/(\d{1,2}:\d{2})\s*,\s*(\d{1,2}:\d{2})/);
+    if (!match) return null;
+    const start = parseMMSS(match[1]);
+    const end = parseMMSS(match[2]);
+    if (isNaN(start) || isNaN(end) || end <= start) return null;
+    return { start, end, topic };
+  } catch {
+    return null;
+  }
+}
+
+async function generateAutoHighlights(
+  formattedTranscript: string,
+  rawSegments?: TranscriptSegmentInput[]
+): Promise<Highlight[]> {
+  console.log("Auto mode: discovering topics...");
+  const topics = await discoverTopics(formattedTranscript);
+  console.log(`Found ${topics.length} topics:`, topics);
+
+  if (topics.length === 0) {
+    // fallback to 5-clip manual mode
+    console.warn("No topics found, falling back to manual 5-clip mode");
+    return generateHighlights(formattedTranscript, rawSegments, { count: 5 });
+  }
+
+  // Find best clip for each topic in parallel
+  const clipResults = await Promise.all(
+    topics.map(topic => findClipForTopic(formattedTranscript, topic))
+  );
+
+  const validRanges = clipResults.filter((r): r is { start: number; end: number; topic: string } => r !== null);
+  console.log(`Got ${validRanges.length} clips from ${topics.length} topics`);
+
+  if (validRanges.length === 0) {
+    console.warn("No clips found for any topic, falling back to manual 5-clip mode");
+    return generateHighlights(formattedTranscript, rawSegments, { count: 5 });
+  }
+
+  // Resolve text for each clip
+  const segmentsWithText = validRanges.map(({ start, end, topic }) => {
+    let text = "";
+    if (rawSegments) {
+      text = rawSegments
+        .filter(s => s.end > start && s.start < end)
+        .map(s => s.text).join(" ").trim();
+    }
+    return { start, end, text, topic };
+  });
+
+  // Enrich
+  let enriched: Array<{ score: number; score_reason: string; reason: string; hashtags: string[]; clip_title: string }>;
+  try {
+    enriched = await enrichSegments(segmentsWithText);
+  } catch {
+    enriched = segmentsWithText.map(() => ({ score: 50, score_reason: "", reason: "", hashtags: [], clip_title: "" }));
+  }
+
+  return segmentsWithText.map((seg, i) => ({
+    ...seg,
+    ...(enriched[i] ?? { score: 50, score_reason: "", reason: "", hashtags: [], clip_title: "" }),
+  }));
 }

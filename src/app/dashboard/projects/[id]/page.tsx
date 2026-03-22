@@ -58,6 +58,7 @@ interface Clip {
   export_url: string | null;
   hashtags: string[];
   clip_title: string | null;
+  topic: string | null;
 }
 
 type CaptionStyle = "hormozi" | "modern" | "neon" | "minimal";
@@ -157,7 +158,7 @@ export function ProjectDetailContent({ id }: { id: string }) {
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
 
   // Highlight generation options
-  const [clipCount, setClipCount] = useState(5);
+  const [clipCount, setClipCount] = useState<number | "auto">("auto");
   const [clipPrompt, setClipPrompt] = useState("");
   const [clipTargetDuration, setClipTargetDuration] = useState("");
 
@@ -282,7 +283,7 @@ export function ProjectDetailContent({ id }: { id: string }) {
   async function handleGenerateClips() {
     setClipsLoading(true);
     try {
-      const body: Record<string, unknown> = { count: clipCount };
+      const body: Record<string, unknown> = clipCount === "auto" ? {} : { count: clipCount };
       if (clipPrompt.trim()) body.prompt = clipPrompt.trim();
       if (clipTargetDuration && Number(clipTargetDuration) > 0) body.targetDuration = Number(clipTargetDuration);
       const res = await fetch(`/api/projects/${id}/clips`, {
@@ -673,10 +674,11 @@ export function ProjectDetailContent({ id }: { id: string }) {
                         <label className="text-xs text-gray-500 shrink-0">Clips</label>
                         <select
                           value={clipCount}
-                          onChange={e => setClipCount(Number(e.target.value))}
+                          onChange={e => setClipCount(e.target.value === "auto" ? "auto" : Number(e.target.value))}
                           disabled={clipsLoading}
                           className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[36px]"
                         >
+                          <option value="auto">Auto</option>
                           {[3,5,7,10].map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
                       </div>
@@ -758,6 +760,15 @@ export function ProjectDetailContent({ id }: { id: string }) {
                                   : "border-gray-800 hover:border-gray-700"
                               }`}
                             >
+                              {/* Topic badge */}
+                              {clip.topic && (
+                                <div className="mb-2">
+                                  <span className="text-xs bg-violet-900/50 text-violet-300 border border-violet-700/50 px-2 py-0.5 rounded-full">
+                                    🏷 {clip.topic}
+                                  </span>
+                                </div>
+                              )}
+
                               {/* Header row: score + title */}
                               <div className="flex items-start gap-2 mb-2">
                                 <ScoreBadge score={clip.score} />
