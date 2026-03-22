@@ -25,17 +25,6 @@ interface Segment {
   text: string;
 }
 
-interface Highlight {
-  start: number;
-  end: number;
-  text: string;
-  reason: string;
-  score?: number;
-  score_reason?: string;
-  hashtags?: string[];
-  clip_title?: string;
-}
-
 interface ProcessingLogEntry {
   step: string;
   provider?: string;
@@ -51,7 +40,7 @@ interface StatusData {
   completed_at: string | null;
   processing_log: ProcessingLogEntry[];
   transcript: { id: string; segments: Segment[] } | null;
-  highlights: { id: string; segments: Highlight[] } | null;
+  highlights: { id: string; segments: unknown[] } | null;
 }
 
 interface Clip {
@@ -71,7 +60,6 @@ interface Clip {
   clip_title: string | null;
 }
 
-type TabKey = "highlights" | "clips" | "captions" | "transcript";
 type CaptionStyle = "hormozi" | "modern" | "neon" | "minimal";
 
 const TERMINAL_STATUSES: ProjectStatus[] = ["completed", "failed"];
@@ -113,11 +101,47 @@ function scoreColor(score: number): string {
   return "bg-red-500 text-white";
 }
 
-function captionSegmentClass(style: CaptionStyle): string {
-  if (style === "hormozi") return "bg-black text-yellow-400 font-black";
-  if (style === "modern") return "bg-gray-900 text-white font-medium";
-  if (style === "neon") return "bg-gray-950 text-green-400 font-bold";
-  return "bg-transparent text-white font-normal";
+function ScoreBadge({ score }: { score: number }) {
+  const display = score === 0 ? "—" : String(score);
+  const colorClass = score === 0 ? "bg-gray-700 text-gray-400" : scoreColor(score);
+  return (
+    <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${colorClass}`}>
+      {display}
+    </span>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-400 hover:text-white transition-colors min-h-[44px]"
+      >
+        <span>{title}</span>
+        <svg
+          className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  );
 }
 
 // Exported for testing
@@ -125,10 +149,11 @@ export function ProjectDetailContent({ id }: { id: string }) {
   const [data, setData] = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [artifacts, setArtifacts] = useState<Record<string, Artifact> | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("highlights");
   const [clips, setClips] = useState<Clip[] | null>(null);
   const [clipsLoading, setClipsLoading] = useState(false);
-  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("hormozi");
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [howItRanOpen, setHowItRanOpen] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -158,15 +183,15 @@ export function ProjectDetailContent({ id }: { id: string }) {
     return () => clearInterval(interval);
   }, [data, fetchStatus]);
 
-  // Load clips when switching to clips tab
+  // Auto-load clips when completed
   useEffect(() => {
-    if (activeTab === "clips" && data?.status === "completed" && clips === null) {
+    if (data?.status === "completed" && clips === null && !clipsLoading) {
       fetch(`/api/projects/${id}/clips`)
         .then(r => r.ok ? r.json() : null)
         .then(d => d && setClips(d.clips))
         .catch(() => undefined);
     }
-  }, [activeTab, data?.status, clips, id]);
+  }, [data?.status, clips, id, clipsLoading]);
 
   async function handleRetry() {
     await fetch(`/api/projects/${id}/process`, { method: "POST" });
@@ -214,13 +239,6 @@ export function ProjectDetailContent({ id }: { id: string }) {
     }
   }
 
-  async function handleApplyStyleToAll() {
-    if (!clips?.length) return;
-    await Promise.all(
-      clips.map(c => handleClipAction(c.id, { caption_style: captionStyle }))
-    );
-  }
-
   const isProcessing =
     data &&
     !TERMINAL_STATUSES.includes(data.status) &&
@@ -228,13 +246,6 @@ export function ProjectDetailContent({ id }: { id: string }) {
 
   const activeStep = data ? getActiveStep(data.status) : -1;
   const isCompleted = data?.status === "completed";
-
-  const TABS: { key: TabKey; label: string }[] = [
-    { key: "highlights", label: "✨ Highlights" },
-    { key: "clips", label: "🎬 Clips" },
-    { key: "captions", label: "💬 Caption Studio" },
-    { key: "transcript", label: "📝 Transcript" },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -281,15 +292,15 @@ export function ProjectDetailContent({ id }: { id: string }) {
               </span>
             </div>
 
-            {/* Processing stepper */}
-            {(isProcessing || isCompleted) && (
+            {/* Processing stepper — only while processing */}
+            {isProcessing && (
               <div data-testid="processing-stepper" className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wide">
                   Processing stages
                 </h2>
                 <ol className="flex flex-col gap-3">
                   {STAGES.map((stage, i) => {
-                    const isDone = data.status === "completed" || i < activeStep;
+                    const isDone = i < activeStep;
                     const isActive = i === activeStep;
                     return (
                       <li key={stage.label} className="flex items-center gap-3">
@@ -358,15 +369,235 @@ export function ProjectDetailContent({ id }: { id: string }) {
               </div>
             )}
 
-            {/* Completed — artifacts + tabs */}
+            {/* Completed — clips-first layout */}
             {isCompleted && (
-              <div className="flex flex-col gap-6 mt-2">
+              <div className="flex flex-col gap-4">
 
-                {/* Artifacts — download links */}
+                {/* ✨ AI Clips section */}
+                <div>
+                  {/* Header row */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <h2 className="text-lg font-bold text-white flex-1">✨ AI Clips</h2>
+                    {clips && clips.length > 0 && (
+                      <span className="text-xs text-gray-400 bg-gray-800 px-2.5 py-1 rounded-full font-medium">
+                        {clips.length} clips
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleGenerateClips}
+                      disabled={clipsLoading}
+                      data-testid="generate-clips-btn"
+                      className="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-semibold text-white transition-colors min-h-[44px]"
+                    >
+                      {clipsLoading ? "Generating…" : "Generate Clips"}
+                    </button>
+                  </div>
+
+                  {/* Skeleton loading */}
+                  {clipsLoading && (
+                    <div className="flex flex-col gap-3">
+                      {[0, 1, 2].map(i => (
+                        <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 animate-pulse">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="h-5 w-10 bg-gray-800 rounded-full" />
+                            <div className="h-4 w-40 bg-gray-800 rounded" />
+                          </div>
+                          <div className="h-3 w-32 bg-gray-800 rounded mb-3" />
+                          <div className="flex gap-2">
+                            <div className="h-3 w-16 bg-gray-800 rounded-full" />
+                            <div className="h-3 w-20 bg-gray-800 rounded-full" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {!clipsLoading && (clips === null || clips.length === 0) && (
+                    <div className="text-center py-14 bg-gray-900 border border-gray-800 rounded-xl flex flex-col items-center gap-4">
+                      <p className="text-gray-400 text-sm">No clips yet — generate AI clips from your highlights</p>
+                      <button
+                        type="button"
+                        onClick={handleGenerateClips}
+                        className="px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-xl text-base font-semibold text-white transition-colors min-h-[44px]"
+                      >
+                        ✨ Generate AI Clips
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Clips list */}
+                  {!clipsLoading && clips && clips.length > 0 && (
+                    <div className="flex flex-col gap-3">
+                      {[...clips]
+                        .sort((a, b) => b.score - a.score)
+                        .map(clip => {
+                          const visibleTags = clip.hashtags?.slice(0, 3) ?? [];
+                          const extraTagCount = (clip.hashtags?.length ?? 0) - 3;
+                          return (
+                            <div
+                              key={clip.id}
+                              className={`bg-gray-900 border rounded-xl p-4 transition-all ${
+                                clip.status === "approved"
+                                  ? "border-l-4 border-l-green-600 border-gray-800"
+                                  : clip.status === "rejected"
+                                  ? "border-gray-800 opacity-40"
+                                  : "border-gray-800"
+                              }`}
+                            >
+                              {/* Header row: score + title */}
+                              <div className="flex items-start gap-2 mb-2">
+                                <ScoreBadge score={clip.score} />
+                                <p className="text-violet-300 text-sm font-semibold flex-1 min-w-0 line-clamp-2">
+                                  {clip.clip_title ?? clip.title ?? "Untitled clip"}
+                                </p>
+                              </div>
+
+                              {/* Time + duration */}
+                              <div className="flex items-center gap-3 mb-2 text-xs text-gray-400 font-mono">
+                                <span>{formatTime(clip.start_sec)} → {formatTime(clip.end_sec)}</span>
+                                <span className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">
+                                  {clip.duration_sec?.toFixed(1) ?? (clip.end_sec - clip.start_sec).toFixed(1)}s
+                                </span>
+                              </div>
+
+                              {/* Hashtags */}
+                              {visibleTags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-3">
+                                  {visibleTags.map(tag => (
+                                    <span key={tag} className="text-xs bg-gray-800 text-violet-400 px-2 py-0.5 rounded-full">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {extraTagCount > 0 && (
+                                    <span className="text-xs text-gray-500 px-2 py-0.5">
+                                      +{extraTagCount} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Controls */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  aria-label="Approve clip"
+                                  onClick={() => handleClipAction(clip.id, { status: "approved" })}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] ${
+                                    clip.status === "approved"
+                                      ? "bg-green-600 text-white"
+                                      : "bg-gray-800 text-gray-300 hover:bg-green-700 hover:text-white"
+                                  }`}
+                                >
+                                  ✓ Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Reject clip"
+                                  onClick={() => handleClipAction(clip.id, { status: "rejected" })}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] ${
+                                    clip.status === "rejected"
+                                      ? "bg-red-700 text-white"
+                                      : "bg-gray-800 text-gray-300 hover:bg-red-800 hover:text-white"
+                                  }`}
+                                >
+                                  ✗ Reject
+                                </button>
+
+                                <select
+                                  aria-label="Caption style"
+                                  value={clip.caption_style}
+                                  onChange={e => handleClipAction(clip.id, { caption_style: e.target.value as CaptionStyle })}
+                                  className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[44px]"
+                                >
+                                  <option value="hormozi">Hormozi</option>
+                                  <option value="modern">Modern</option>
+                                  <option value="neon">Neon</option>
+                                  <option value="minimal">Minimal</option>
+                                </select>
+
+                                <select
+                                  aria-label="Aspect ratio"
+                                  value={clip.aspect_ratio}
+                                  onChange={e => handleClipAction(clip.id, { aspect_ratio: e.target.value })}
+                                  className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[44px]"
+                                >
+                                  <option value="9:16">9:16</option>
+                                  <option value="1:1">1:1</option>
+                                  <option value="16:9">16:9</option>
+                                </select>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportClip(clip.id)}
+                                  disabled={clip.status === "exporting" || clip.status === "exported"}
+                                  className="ml-auto px-3 py-1.5 bg-violet-700 hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-white transition-colors min-h-[44px]"
+                                >
+                                  {clip.status === "exporting" ? "Exporting…" : clip.status === "exported" ? "Exported ✓" : "Export →"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                      {/* Regenerate link */}
+                      <div className="flex justify-center pt-1">
+                        <button
+                          type="button"
+                          onClick={handleGenerateClips}
+                          disabled={clipsLoading}
+                          className="text-xs text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-50"
+                        >
+                          ↺ Regenerate Clips
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 📝 Transcript — collapsible */}
+                {data.transcript?.segments?.length ? (
+                  <CollapsibleSection
+                    title="📝 Show Transcript"
+                    open={transcriptOpen}
+                    onToggle={() => setTranscriptOpen(o => !o)}
+                  >
+                    <div className="max-h-96 overflow-y-auto -mx-4 px-4">
+                      <div className="flex flex-col gap-2 pt-1">
+                        {(data.transcript.segments as Segment[]).map((seg) => {
+                          const speakerMatch = seg.text.match(/^\[Speaker (\d+)\]\s*/);
+                          const speakerNum = speakerMatch ? parseInt(speakerMatch[1]) : null;
+                          const text = speakerMatch ? seg.text.slice(speakerMatch[0].length) : seg.text;
+                          const speakerColors = ["text-violet-400", "text-blue-400", "text-green-400", "text-yellow-400", "text-pink-400"];
+                          const color = speakerNum !== null ? speakerColors[speakerNum % speakerColors.length] : "text-gray-400";
+                          return (
+                            <div key={seg.id} className="flex gap-3 text-sm">
+                              <span className="text-gray-500 font-mono text-xs shrink-0 pt-0.5 w-10">
+                                {formatTime(seg.start)}
+                              </span>
+                              {speakerNum !== null && (
+                                <span className={`text-xs font-bold shrink-0 pt-0.5 w-16 ${color}`}>
+                                  S{speakerNum}
+                                </span>
+                              )}
+                              <p className="text-gray-300">{text}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CollapsibleSection>
+                ) : null}
+
+                {/* 📦 Downloads — collapsible */}
                 {artifacts && Object.keys(artifacts).length > 0 && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                    <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">📦 Outputs</h2>
-                    <div className="flex flex-wrap gap-2">
+                  <CollapsibleSection
+                    title="📦 Downloads"
+                    open={downloadsOpen}
+                    onToggle={() => setDownloadsOpen(o => !o)}
+                  >
+                    <div className="flex flex-wrap gap-2 pt-1">
                       {Object.entries(artifacts).map(([key, art]) => (
                         art.available ? (
                           <a
@@ -389,14 +620,17 @@ export function ProjectDetailContent({ id }: { id: string }) {
                         )
                       ))}
                     </div>
-                  </div>
+                  </CollapsibleSection>
                 )}
 
-                {/* Processing log */}
+                {/* ⚙️ How it ran — collapsible */}
                 {data.processing_log?.length > 0 && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                    <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">⚙️ How it ran</h2>
-                    <div className="flex flex-col gap-2">
+                  <CollapsibleSection
+                    title="⚙️ How it ran"
+                    open={howItRanOpen}
+                    onToggle={() => setHowItRanOpen(o => !o)}
+                  >
+                    <div className="flex flex-col gap-2 pt-1">
                       {data.processing_log.map((entry, i) => (
                         <div key={i} className="flex items-start gap-3 text-sm">
                           <span className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${
@@ -418,303 +652,9 @@ export function ProjectDetailContent({ id }: { id: string }) {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </CollapsibleSection>
                 )}
 
-                {/* Tabs */}
-                <div>
-                  <div className="flex gap-1 border-b border-gray-800 mb-5 overflow-x-auto">
-                    {TABS.map(tab => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setActiveTab(tab.key)}
-                        className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors min-h-[44px] ${
-                          activeTab === tab.key
-                            ? "border-b-2 border-violet-500 text-white"
-                            : "text-gray-500 hover:text-gray-300"
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Highlights tab */}
-                  {activeTab === "highlights" && (
-                    data.highlights?.segments?.length ? (
-                      <div className="flex flex-col gap-3">
-                        {(data.highlights.segments as Highlight[]).map((h, i) => (
-                          <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <span className="text-xs text-violet-400 font-mono">
-                                {formatTime(h.start)} → {formatTime(h.end)}
-                              </span>
-                              {h.score !== undefined && (
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${scoreColor(h.score)}`}>
-                                  {h.score}
-                                </span>
-                              )}
-                            </div>
-                            {h.clip_title && (
-                              <p className="text-violet-300 text-sm font-semibold mb-1">{h.clip_title}</p>
-                            )}
-                            <p className="text-white text-sm font-medium mb-1">&ldquo;{h.text}&rdquo;</p>
-                            <p className="text-gray-400 text-xs mb-2">{h.reason}</p>
-                            {h.hashtags && h.hashtags.length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {h.hashtags.map(tag => (
-                                  <span key={tag} className="text-xs bg-gray-800 text-violet-400 px-2 py-0.5 rounded-full">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-gray-500 text-sm">No highlights generated.</div>
-                    )
-                  )}
-
-                  {/* Clips tab */}
-                  {activeTab === "clips" && (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={handleGenerateClips}
-                          disabled={clipsLoading}
-                          data-testid="generate-clips-btn"
-                          className="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-semibold text-white transition-colors min-h-[44px]"
-                        >
-                          {clipsLoading ? "Generating…" : "Generate Clips"}
-                        </button>
-                        {clips && clips.length > 0 && (
-                          <span className="text-gray-500 text-xs">{clips.length} clips</span>
-                        )}
-                      </div>
-
-                      {clipsLoading && (
-                        <div className="flex flex-col gap-3">
-                          {[0, 1, 2].map(i => (
-                            <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 animate-pulse">
-                              <div className="h-4 w-24 bg-gray-800 rounded mb-2" />
-                              <div className="h-3 w-full bg-gray-800 rounded mb-1" />
-                              <div className="h-3 w-3/4 bg-gray-800 rounded" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {!clipsLoading && clips === null && (
-                        <div className="text-center py-12 text-gray-500 text-sm">
-                          No clips yet — click Generate Clips
-                        </div>
-                      )}
-
-                      {!clipsLoading && clips !== null && clips.length === 0 && (
-                        <div className="text-center py-12 text-gray-500 text-sm">
-                          No clips generated yet.
-                        </div>
-                      )}
-
-                      {!clipsLoading && clips && clips.length > 0 && (
-                        <div className="flex flex-col gap-3">
-                          {[...clips]
-                            .sort((a, b) => b.score - a.score)
-                            .map(clip => (
-                              <div
-                                key={clip.id}
-                                className={`bg-gray-900 border rounded-xl p-4 transition-colors ${
-                                  clip.status === "approved"
-                                    ? "border-green-600"
-                                    : clip.status === "rejected"
-                                    ? "border-gray-800 opacity-50"
-                                    : "border-gray-800"
-                                }`}
-                              >
-                                {/* Header row */}
-                                <div className="flex items-start gap-2 flex-wrap mb-2">
-                                  <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${scoreColor(clip.score)}`}>
-                                    {clip.score}
-                                  </span>
-                                  <span className="text-violet-300 text-sm font-semibold flex-1 min-w-0">
-                                    {clip.clip_title ?? clip.title ?? "Untitled clip"}
-                                  </span>
-                                </div>
-
-                                {/* Time + duration */}
-                                <div className="flex items-center gap-3 mb-2 text-xs text-gray-400 font-mono">
-                                  <span>{formatTime(clip.start_sec)} → {formatTime(clip.end_sec)}</span>
-                                  <span className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">
-                                    {clip.duration_sec?.toFixed(1) ?? (clip.end_sec - clip.start_sec).toFixed(1)}s
-                                  </span>
-                                </div>
-
-                                {/* Hashtags */}
-                                {clip.hashtags?.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mb-3">
-                                    {clip.hashtags.map(tag => (
-                                      <span key={tag} className="text-xs bg-gray-800 text-violet-400 px-2 py-0.5 rounded-full">
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {/* Controls */}
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {/* Approve / Reject */}
-                                  <button
-                                    type="button"
-                                    aria-label="Approve clip"
-                                    onClick={() => handleClipAction(clip.id, { status: "approved" })}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[36px] ${
-                                      clip.status === "approved"
-                                        ? "bg-green-600 text-white"
-                                        : "bg-gray-800 text-gray-300 hover:bg-green-700 hover:text-white"
-                                    }`}
-                                  >
-                                    ✓ Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    aria-label="Reject clip"
-                                    onClick={() => handleClipAction(clip.id, { status: "rejected" })}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[36px] ${
-                                      clip.status === "rejected"
-                                        ? "bg-red-700 text-white"
-                                        : "bg-gray-800 text-gray-300 hover:bg-red-800 hover:text-white"
-                                    }`}
-                                  >
-                                    ✗ Reject
-                                  </button>
-
-                                  {/* Caption style */}
-                                  <select
-                                    aria-label="Caption style"
-                                    value={clip.caption_style}
-                                    onChange={e => handleClipAction(clip.id, { caption_style: e.target.value as CaptionStyle })}
-                                    className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[36px]"
-                                  >
-                                    <option value="hormozi">Hormozi</option>
-                                    <option value="modern">Modern</option>
-                                    <option value="neon">Neon</option>
-                                    <option value="minimal">Minimal</option>
-                                  </select>
-
-                                  {/* Aspect ratio */}
-                                  <select
-                                    aria-label="Aspect ratio"
-                                    value={clip.aspect_ratio}
-                                    onChange={e => handleClipAction(clip.id, { aspect_ratio: e.target.value })}
-                                    className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[36px]"
-                                  >
-                                    <option value="9:16">9:16</option>
-                                    <option value="1:1">1:1</option>
-                                    <option value="16:9">16:9</option>
-                                  </select>
-
-                                  {/* Export */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleExportClip(clip.id)}
-                                    disabled={clip.status === "exporting" || clip.status === "exported"}
-                                    className="ml-auto px-3 py-1.5 bg-violet-700 hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-white transition-colors min-h-[36px]"
-                                  >
-                                    {clip.status === "exporting" ? "Exporting…" : clip.status === "exported" ? "Exported ✓" : "Export"}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Caption Studio tab */}
-                  {activeTab === "captions" && (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <label className="text-sm text-gray-400 font-medium">Style:</label>
-                        <select
-                          value={captionStyle}
-                          onChange={e => setCaptionStyle(e.target.value as CaptionStyle)}
-                          className="bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 min-h-[44px]"
-                        >
-                          <option value="hormozi">Hormozi — yellow on black</option>
-                          <option value="modern">Modern — white on dark</option>
-                          <option value="neon">Neon — green glow</option>
-                          <option value="minimal">Minimal — clean white</option>
-                        </select>
-                        <button
-                          type="button"
-                          onClick={handleApplyStyleToAll}
-                          className="px-4 py-2 bg-violet-700 hover:bg-violet-600 rounded-lg text-sm font-semibold text-white transition-colors min-h-[44px]"
-                        >
-                          Apply to all clips
-                        </button>
-                      </div>
-
-                      {data.transcript?.segments?.length ? (
-                        <div className="max-h-[520px] overflow-y-auto rounded-xl border border-gray-800 bg-gray-900 p-4">
-                          <div className="flex flex-col gap-2">
-                            {(data.transcript.segments as Segment[]).map(seg => {
-                              const speakerMatch = seg.text.match(/^\[Speaker (\d+)\]\s*/);
-                              const text = speakerMatch ? seg.text.slice(speakerMatch[0].length) : seg.text;
-                              return (
-                                <div key={seg.id} className="flex gap-3 items-start">
-                                  <span className="text-gray-600 font-mono text-xs shrink-0 pt-1 w-10">
-                                    {formatTime(seg.start)}
-                                  </span>
-                                  <span className={`text-sm px-2 py-1 rounded ${captionSegmentClass(captionStyle)}`}>
-                                    {text}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-gray-500 text-sm">No transcript segments available.</div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Transcript tab */}
-                  {activeTab === "transcript" && (
-                    data.transcript?.segments?.length ? (
-                      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 max-h-96 overflow-y-auto">
-                        <div className="flex flex-col gap-2">
-                          {(data.transcript.segments as Segment[]).map((seg) => {
-                            const speakerMatch = seg.text.match(/^\[Speaker (\d+)\]\s*/);
-                            const speakerNum = speakerMatch ? parseInt(speakerMatch[1]) : null;
-                            const text = speakerMatch ? seg.text.slice(speakerMatch[0].length) : seg.text;
-                            const speakerColors = ["text-violet-400","text-blue-400","text-green-400","text-yellow-400","text-pink-400"];
-                            const color = speakerNum !== null ? speakerColors[speakerNum % speakerColors.length] : "text-gray-400";
-                            return (
-                              <div key={seg.id} className="flex gap-3 text-sm">
-                                <span className="text-gray-500 font-mono text-xs shrink-0 pt-0.5 w-10">
-                                  {formatTime(seg.start)}
-                                </span>
-                                {speakerNum !== null && (
-                                  <span className={`text-xs font-bold shrink-0 pt-0.5 w-16 ${color}`}>
-                                    S{speakerNum}
-                                  </span>
-                                )}
-                                <p className="text-gray-300">{text}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500 text-sm">No transcript available.</div>
-                    )
-                  )}
-                </div>
               </div>
             )}
           </div>
