@@ -168,3 +168,46 @@ Score, hashtags, title — same as now
 - [ ] UI: topic filter chips above clip list 🟢
 
 *Last updated: 2026-03-22*
+
+---
+
+## 🎬 Phase 9 — Director's Cut
+
+> Semantic graph + speaker tracking + Remotion compiler
+
+### 9.1 — GeminiGraphService (Semantic Graph)
+- [ ] `src/lib/gemini-graph.ts` — takes transcript, returns VideoGraph.json 🔴
+- [ ] Schema: Nodes={id,label,summary,importance,speakerId}, Segments={id,topicId,start,end,hookSentence,intensityScore}, Edges={source,target,relationshipType}
+- [ ] Prompt: "You are a Narrative Designer. Group segments into Topics (Nodes). For each Topic, identify Clips (Segments) with high viral potential. Define Flow (Edges): if A sets up a question B answers, create an edge."
+- [ ] Store VideoGraph.json on project (new `video_graph` JSONB column)
+- [ ] Trigger after clips/generate completes
+
+### 9.2 — Speaker Tracking (MediaPipe)
+- [ ] `scripts/analyze_focus.py` — MediaPipe face detection per second 🔴
+- [ ] Input: video file + Sarvam diarization (speaker_id per segment)
+- [ ] Output: `focus_data.json` mapping timestamp → { x_percent, y_percent, speakerId }
+- [ ] Node wrapper: `src/lib/focus-tracker.ts` — calls python script, stores result in R2
+- [ ] Run as Inngest step after video download
+
+### 9.3 — VideoKnowledgeGraph UI (React Flow)
+- [ ] Install `reactflow` package 🟡
+- [ ] `src/components/VideoKnowledgeGraph.tsx` — node-link diagram from VideoGraph.json 🔴
+- [ ] Nodes color-coded by speaker
+- [ ] Click node → seek video player to that segment's start
+- [ ] Multi-select mode → adds to SelectedClips
+- [ ] Toggle button on project detail page: "Graph View" / "List View"
+
+### 9.4 — Remotion Compiler
+- [ ] Set up Remotion in project (`@remotion/core`, `@remotion/player`) 🟡
+- [ ] `src/remotion/ViralReel.tsx` — composition using `<Series>` 🔴
+- [ ] Accept `clips[]` + `focusData` via `getInputProps()`
+- [ ] Per clip: `<Video>` with `transform: translate(${-focusX}%, ${-focusY}%) scale(1.5)` for 9:16 centering
+- [ ] In-browser preview with `<Player>` component on project detail
+- [ ] Server-side render trigger (Remotion CLI or Lambda) for final export
+
+### Dependencies to install
+- `reactflow` — node-link diagram
+- `@remotion/core` `@remotion/player` `@remotion/cli` — video compiler
+- `mediapipe` (Python) — face tracking
+
+*Last updated: 2026-03-22*
