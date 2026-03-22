@@ -56,3 +56,73 @@
 ---
 
 *Last updated: 2026-03-22*
+
+---
+
+## 🗺️ Admin Panel — Plan
+
+> Route: `/admin` — protected by ADMIN_EMAIL env var check (simple, no extra auth needed)
+
+### Phase A — Stats Dashboard (build first)
+- [ ] `/admin` — overview cards: total users, total projects, projects by status, R2 storage used 🔴
+- [ ] R2 usage: list all objects with size, group by type (videos/ audio/ modal-tmp/) 🔴
+- [ ] Project table: all projects across all users, status, created_at, user email 🟡
+- [ ] User table: all users, plan, credits, joined date 🟡
+
+### Phase B — User Management
+- [ ] View any user's projects 🟡
+- [ ] Change user plan (free → pro → team) — direct Supabase update 🟡
+- [ ] Reset user credits 🟡
+- [ ] Impersonate user (view their dashboard) — Clerk `__session` override 🟢
+
+### Phase C — R2 Cleanup
+- [ ] Delete orphaned R2 objects (modal-tmp/* — 308MB of stale Modal audio files) 🔴
+- [ ] Button to purge all R2 files for a specific project 🟡
+- [ ] Storage breakdown chart (videos vs audio vs temp) 🟢
+
+### Phase D — Support Tools
+- [ ] Retry any stuck/failed project from admin panel 🟡
+- [ ] View full processing log for any project 🟡
+- [ ] Send a notification/message to a user (webhook to their email) 🟢
+
+### Implementation notes
+- Auth: check `session.user.email === process.env.ADMIN_EMAIL` in middleware — simple and safe
+- No new DB tables needed for Phase A/B
+- Use Supabase service role (already have it) for cross-user queries
+- R2 usage via ListObjectsV2 — paginate for large buckets
+- Build as `/admin/page.tsx` with server components (no client polling needed for stats)
+
+---
+
+## 🗺️ Admin Panel — Plan
+
+> Route: `/admin` — protected by ADMIN_EMAIL env var check (simple, no extra auth needed)
+
+### Phase A — Stats Dashboard (build first)
+- [ ] `/admin` overview cards: total users, total projects, R2 storage used, projects by status 🔴
+- [ ] R2 usage: list all objects grouped by type (videos/ audio/ modal-tmp/) 🔴
+- [ ] Projects table: all projects across all users with status + user email 🟡
+- [ ] Users table: all users, plan, credits, joined date 🟡
+
+### Phase B — User Management
+- [ ] Change user plan (free → pro → team) — direct Supabase update 🟡
+- [ ] Reset user credits 🟡
+- [ ] View any user's projects 🟡
+
+### Phase C — R2 Cleanup
+- [ ] Delete orphaned modal-tmp/* files (308MB of stale old Modal audio) 🔴
+- [ ] Purge all R2 files for a specific project 🟡
+
+### Phase D — Support Tools
+- [ ] Retry any stuck/failed project from admin panel 🟡
+- [ ] View full processing log for any project 🟡
+
+### Implementation notes
+- Auth: `session.user.email === process.env.ADMIN_EMAIL` in middleware — no extra packages
+- R2 usage via ListObjectsV2 (already have the client)
+- All queries use Supabase service role (already wired)
+- Build as server components — no client polling needed for stats
+
+---
+
+*Last updated: 2026-03-22*
