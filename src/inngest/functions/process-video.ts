@@ -60,8 +60,8 @@ async function downloadYouTubeVideo(url: string, outputPath: string): Promise<vo
     "--merge-output-format", "mp4",
     "--output", outputPath,
     "--no-playlist",
-    "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "--extractor-args", "youtube:player_client=android",
+    // Use Chrome cookies to bypass YouTube bot-detection on server/Inngest
+    "--cookies-from-browser", "chrome",
     url,
   ]);
 }
