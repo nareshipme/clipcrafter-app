@@ -75,6 +75,22 @@ export async function PATCH(
     updates.aspect_ratio = body.aspect_ratio;
   }
 
+  if ("start_sec" in body) {
+    const v = Number(body.start_sec);
+    if (!Number.isFinite(v) || v < 0) {
+      return Response.json({ error: "Invalid start_sec" }, { status: 400 });
+    }
+    updates.start_sec = v;
+  }
+
+  if ("end_sec" in body) {
+    const v = Number(body.end_sec);
+    if (!Number.isFinite(v) || v < 0) {
+      return Response.json({ error: "Invalid end_sec" }, { status: 400 });
+    }
+    updates.end_sec = v;
+  }
+
   if (Object.keys(updates).length === 0) {
     return Response.json({ error: "No valid fields to update" }, { status: 400 });
   }
