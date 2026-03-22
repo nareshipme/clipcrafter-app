@@ -15,6 +15,10 @@ Summary: One line about what the post covers.
 
 <!-- Add new posts here, newest first -->
 
+## 2026-03-22 — [Inngest Retries and the Stale Event Payload Trap](https://dev.to/nareshipme/inngest-retries-and-the-stale-event-payload-trap-33ce)
+Tags: inngest, typescript, nextjs, webdev
+Summary: Why Inngest retries fail when you read mutable data from the event payload — and the fix: pass only stable IDs in events, read everything else fresh from the DB inside each step.
+
 ## 2026-03-21 — [Direct-to-R2 Uploads with Presigned URLs in Next.js 15](https://dev.to/nareshipme/direct-to-r2-uploads-with-presigned-urls-in-nextjs-15-5c4l)
 Tags: nextjs, typescript, cloudflare, webdev
 Summary: How to implement direct-to-R2 file uploads using presigned URLs in Next.js 15 App Router — skipping the server proxy, with Vitest tests and security tips.
