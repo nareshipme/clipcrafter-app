@@ -126,3 +126,45 @@
 ---
 
 *Last updated: 2026-03-22*
+
+---
+
+## 🧠 Auto Clip Mode — Design
+
+### Problem
+Fixed clip count is wrong. A 5-min video might have 2 strong moments; a 45-min talk might cover 10 topics. "Give me 5" either duplicates or misses content.
+
+### Insight
+Reel-worthy clip = one clear topic + punchy moment. Right question: "how many topics did the speaker cover?" not "how many clips do you want?"
+
+### Solution — Topic-first pipeline (Auto mode)
+
+**Pass 1 — Topic discovery**
+Prompt: "What distinct topics/themes does this speaker cover? Return a numbered list with a 1-sentence summary each."
+→ ["AI job displacement", "future of education", "what creators should do now"]
+
+**Pass 2 — Best clip per topic**
+For each topic: "Find the single best 30–90s clip for this topic. Return MM:SS, MM:SS."
+→ Runs in parallel (Promise.all), one Gemini call per topic
+
+**Pass 3 — Enrich** (existing)
+Score, hashtags, title — same as now
+
+**UI changes:**
+- clip count dropdown → add "Auto" option as default
+- Each clip card shows a topic badge (e.g. "🏷 AI Jobs")
+- Topic filter chips above clip list to filter by topic
+- Clip DB table: add `topic` column (text)
+
+**Manual mode** (existing) — user picks 3/5/7/10, no topic discovery
+
+### Implementation
+- [ ] Add `auto` mode to `generateHighlights` — triggers topic discovery first 🔴
+- [ ] Pass 1.5: `discoverTopics(transcript)` → string[] 🔴
+- [ ] Pass 2 change: loop topics, find best clip per topic (parallel) 🔴
+- [ ] Add `topic TEXT` column to clips table in Supabase 🟡
+- [ ] UI: "Auto" as default in count dropdown 🟡
+- [ ] UI: topic badge on clip card 🟡
+- [ ] UI: topic filter chips above clip list 🟢
+
+*Last updated: 2026-03-22*
