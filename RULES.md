@@ -148,3 +148,21 @@ Every non-trivial bug found during development must be logged in `docs/bug-log.m
 - Be honest about root cause (don't just say "it was broken")
 - If it's a pattern that could bite other devs, mark `Post-worthy: Yes`
 - Review the log during daily dev.to post time (Rule 5) — use post-worthy bugs as content
+
+## 12. Code Quality — KISS, DRY, SOLID, YAGNI
+
+After every phase (and before starting the next), do a quick abstraction audit:
+
+**KISS** — Is there a simpler way? Remove layers that don't earn their complexity.
+**DRY** — Is logic duplicated? Extract shared utilities (like `callLLM`, `formatSegmentsForHighlights`).
+**SOLID** — Single responsibility: one file/function = one job. New providers/features should extend, not modify.
+**YAGNI** — Delete speculative code. If it's not used now, don't build it. Stubs are fine only if they're clearly marked `// TODO`.
+
+### Checklist (run after each phase):
+- [ ] Any function doing more than one thing?
+- [ ] Any logic copy-pasted across files?
+- [ ] Any provider/vendor names hardcoded where an abstraction exists?
+- [ ] Any `// TODO` stubs that should be real or deleted?
+- [ ] Any imports that pull in a whole SDK just for one method?
+
+Document findings in `docs/abstraction-audit.md` with the phase name and what was found/fixed.
