@@ -164,6 +164,8 @@ export function ProjectDetailContent({ id }: { id: string }) {
   // Video player state
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isYouTube, setIsYouTube] = useState(false);
+  const [youTubeVideoId, setYouTubeVideoId] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -193,7 +195,14 @@ export function ProjectDetailContent({ id }: { id: string }) {
               if (d) {
                 setArtifacts(d.artifacts);
                 if (d.artifacts?.video?.available && d.artifacts.video.url) {
-                  setVideoUrl(d.artifacts.video.url);
+                  const url = d.artifacts.video.url;
+                  setVideoUrl(url);
+                  // Detect YouTube URLs — embed iframe instead of <video>
+                  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|live\/)|youtu\.be\/)([^?&/#]+)/);
+                  if (ytMatch) {
+                    setIsYouTube(true);
+                    setYouTubeVideoId(ytMatch[1]);
+                  }
                 }
               }
             })
@@ -697,9 +706,9 @@ export function ProjectDetailContent({ id }: { id: string }) {
                                 isSelected
                                   ? "border-l-4 border-l-violet-500 border-gray-700"
                                   : clip.status === "approved"
-                                  ? "border-l-4 border-l-green-600 border-gray-800"
+                                  ? "border-l-4 border-l-green-500 border-gray-800"
                                   : clip.status === "rejected"
-                                  ? "border-gray-800 opacity-40"
+                                  ? "border-gray-800 opacity-35"
                                   : "border-gray-800 hover:border-gray-700"
                               }`}
                             >
@@ -742,27 +751,27 @@ export function ProjectDetailContent({ id }: { id: string }) {
                               >
                                 <button
                                   type="button"
-                                  aria-label="Approve clip"
-                                  onClick={() => handleClipAction(clip.id, { status: "approved" })}
+                                  aria-label="Keep clip"
+                                  onClick={() => handleClipAction(clip.id, { status: clip.status === "approved" ? "pending" : "approved" })}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] ${
                                     clip.status === "approved"
                                       ? "bg-green-600 text-white"
                                       : "bg-gray-800 text-gray-300 hover:bg-green-700 hover:text-white"
                                   }`}
                                 >
-                                  ✓ Approve
+                                  {clip.status === "approved" ? "✓ Kept" : "Keep"}
                                 </button>
                                 <button
                                   type="button"
-                                  aria-label="Reject clip"
-                                  onClick={() => handleClipAction(clip.id, { status: "rejected" })}
+                                  aria-label="Skip clip"
+                                  onClick={() => handleClipAction(clip.id, { status: clip.status === "rejected" ? "pending" : "rejected" })}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] ${
                                     clip.status === "rejected"
                                       ? "bg-red-700 text-white"
                                       : "bg-gray-800 text-gray-300 hover:bg-red-800 hover:text-white"
                                   }`}
                                 >
-                                  ✗ Reject
+                                  {clip.status === "rejected" ? "✗ Skipped" : "Skip"}
                                 </button>
 
                                 <select
@@ -941,29 +950,54 @@ export function ProjectDetailContent({ id }: { id: string }) {
             <div className="flex flex-col flex-1 min-h-0">
               {/* Video */}
               <div className="relative bg-black flex-1 min-h-0 flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="max-h-full max-w-full"
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                />
-                {/* Caption overlay */}
-                {captionText && (
-                  <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6 pointer-events-none">
-                    <span className="bg-black/75 text-white text-sm font-medium px-3 py-1.5 rounded-lg text-center max-w-lg">
-                      {captionText}
-                    </span>
+                {isYouTube && youTubeVideoId ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center">
+                    <iframe
+                      className="w-full h-full"
+                      src={`https://www.youtube.com/embed/${youTubeVideoId}?enablejsapi=1&rel=0`}
+                      title="YouTube video player"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                    {selectedClipId && clips && (
+                      <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm">
+                        {(() => {
+                          const c = clips.find(x => x.id === selectedClipId);
+                          return c ? `Clip: ${formatTime(c.start_sec)} → ${formatTime(c.end_sec)}` : null;
+                        })()}
+                      </div>
+                    )}
+                    <div className="absolute bottom-3 left-3 bg-black/70 text-yellow-400 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm">
+                      📺 YouTube — use the seek bar to navigate to clip timestamps
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <video
+                      ref={videoRef}
+                      src={videoUrl ?? undefined}
+                      className="max-h-full max-w-full"
+                      onTimeUpdate={handleTimeUpdate}
+                      onLoadedMetadata={handleLoadedMetadata}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                    />
+                    {/* Caption overlay */}
+                    {captionText && (
+                      <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6 pointer-events-none">
+                        <span className="bg-black/75 text-white text-sm font-medium px-3 py-1.5 rounded-lg text-center max-w-lg">
+                          {captionText}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
-              {/* Timeline scrubber */}
+              {/* Timeline scrubber — only for local videos */}
               <div
                 ref={timelineRef}
-                className="relative h-20 bg-gray-900 border-t border-gray-800 cursor-pointer shrink-0"
+                className={`relative h-20 bg-gray-900 border-t border-gray-800 cursor-pointer shrink-0 ${isYouTube ? "hidden" : ""}`}
                 onClick={handleTimelineClick}
               >
                 {/* Clip bars */}
@@ -1024,8 +1058,8 @@ export function ProjectDetailContent({ id }: { id: string }) {
                 </div>
               </div>
 
-              {/* Controls */}
-              <div className="shrink-0 bg-gray-900 border-t border-gray-800 px-4 py-3 flex flex-col gap-2">
+              {/* Controls — only for local videos */}
+              <div className={`shrink-0 bg-gray-900 border-t border-gray-800 px-4 py-3 flex flex-col gap-2 ${isYouTube ? "hidden" : ""}`}>
                 {/* Row 1 */}
                 <div className="flex items-center gap-3">
                   {/* Skip prev */}
