@@ -11,6 +11,19 @@ import { r2Client, R2_BUCKET } from "@/lib/r2";
 
 const execFileAsync = promisify(execFile);
 
+// Check once at module load whether this ffmpeg supports drawtext (requires libfreetype)
+let _drawtextSupported: boolean | null = null;
+async function drawtextSupported(): Promise<boolean> {
+  if (_drawtextSupported !== null) return _drawtextSupported;
+  try {
+    const { stdout } = await execFileAsync("ffmpeg", ["-filters"], { timeout: 5000 });
+    _drawtextSupported = stdout.includes("drawtext");
+  } catch {
+    _drawtextSupported = false;
+  }
+  return _drawtextSupported;
+}
+
 export interface ClipExportEventData {
   clipId: string;
   projectId: string;
@@ -201,30 +214,27 @@ export async function clipExportHandler(
     await step.run("trim-and-render", async () => {
       const duration = clip.end_sec - clip.start_sec;
 
+      const canDrawtext = await drawtextSupported();
       const drawtextFilter =
-        withCaptions && segments.length > 0
+        withCaptions && canDrawtext && segments.length > 0
           ? buildDrawtextFilter(segments, clip.start_sec, clip.end_sec, clip.caption_style)
           : null;
 
-      const args: string[] = [
-        "-y",
-        "-i", sourcePath,
-        "-ss", String(clip.start_sec),
-        "-t", String(duration),
-      ];
-
-      if (drawtextFilter) {
-        args.push("-vf", drawtextFilter);
+      if (withCaptions && !canDrawtext) {
+        console.warn("[clip-export] drawtext not supported by this ffmpeg build — exporting without captions");
       }
 
-      args.push(
-        "-c:v", "libx264",
-        "-crf", "23",
-        "-preset", "fast",
-        "-c:a", "aac",
-        "-movflags", "+faststart",
-        outputPath
-      );
+      const args: string[] = ["-y", "-i", sourcePath, "-ss", String(clip.start_sec), "-t", String(duration)];
+
+      if (drawtextFilter) {
+        // Re-encode with caption overlay
+        args.push("-vf", drawtextFilter, "-c:v", "libx264", "-crf", "23", "-preset", "fast");
+      } else {
+        // Stream-copy video (no re-encode) — much faster
+        args.push("-c:v", "copy");
+      }
+
+      args.push("-c:a", "aac", "-movflags", "+faststart", outputPath);
 
       await execFileAsync("ffmpeg", args, { timeout: 10 * 60 * 1000 });
     });
