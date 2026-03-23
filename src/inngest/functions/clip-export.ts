@@ -8,8 +8,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { inngest } from "@/lib/inngest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
-import type { Caption } from "@remotion/captions";
-
 const execFileAsync = promisify(execFile);
 
 export interface ClipExportEventData {
@@ -57,8 +55,8 @@ function stripSpeakerTag(text: string): string {
   return text.replace(/^\[Speaker \d+\]\s*/, "");
 }
 
-/** Convert transcript segments → Remotion Caption format */
-function toCaptions(segments: Segment[], clipStart: number, clipEnd: number): Caption[] {
+/** Convert transcript segments → Remotion Caption format (plain objects, no external type needed) */
+function toCaptions(segments: Segment[], clipStart: number, clipEnd: number) {
   return segments
     .filter(s => s.end > clipStart && s.start < clipEnd)
     .map(s => ({
@@ -70,49 +68,35 @@ function toCaptions(segments: Segment[], clipStart: number, clipEnd: number): Ca
     }));
 }
 
-/** Render clip with Remotion (captions as React JSX, no drawtext needed) */
+/**
+ * Render clip by spawning the standalone remotion-render.mjs script.
+ * This keeps @remotion/renderer completely outside the Next.js module graph.
+ */
 async function renderWithRemotion(opts: {
   videoSrc: string;
   startSec: number;
   endSec: number;
-  captions: Caption[];
+  captions: ReturnType<typeof toCaptions>;
   captionStyle: string;
   withCaptions: boolean;
   outputPath: string;
 }): Promise<void> {
-  // Dynamic import — keeps this out of the Next.js bundle
-  const { bundle } = await import("@remotion/bundler");
-  const { renderMedia, selectComposition } = await import("@remotion/renderer");
+  const propsPath = opts.outputPath + ".props.json";
+  await fs.writeFile(propsPath, JSON.stringify(opts));
 
-  const entryPoint = path.resolve(process.cwd(), "src/remotion/index.ts");
-  const bundled = await bundle({ entryPoint, enableCaching: true });
+  const scriptPath = path.resolve(process.cwd(), "scripts/remotion-render.mjs");
 
-  const inputProps = {
-    videoSrc: opts.videoSrc,
-    startSec: opts.startSec,
-    endSec: opts.endSec,
-    captions: opts.captions,
-    captionStyle: opts.captionStyle,
-    withCaptions: opts.withCaptions,
-  };
-
-  const composition = await selectComposition({
-    serveUrl: bundled,
-    id: "ClipComposition",
-    inputProps,
-  });
-
-  await renderMedia({
-    composition,
-    serveUrl: bundled,
-    codec: "h264",
-    outputLocation: opts.outputPath,
-    inputProps,
-    concurrency: 2,
-    onProgress: ({ progress }) => {
-      console.log(`[remotion] rendering ${(progress * 100).toFixed(0)}%`);
-    },
-  });
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,          // same node binary
+      ["--experimental-vm-modules", scriptPath, propsPath, opts.outputPath],
+      { timeout: 15 * 60 * 1000, maxBuffer: 50 * 1024 * 1024 }
+    );
+    if (stdout) console.log("[remotion]", stdout.slice(-500));
+    if (stderr) console.warn("[remotion stderr]", stderr.slice(-500));
+  } finally {
+    await fs.unlink(propsPath).catch(() => undefined);
+  }
 }
 
 // ── main handler ──────────────────────────────────────────────────────────────
