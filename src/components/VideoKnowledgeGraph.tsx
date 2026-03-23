@@ -8,6 +8,8 @@ import {
   useNodesState,
   useEdgesState,
   BackgroundVariant,
+  MarkerType,
+  Position,
   type Node,
   type Edge,
   type NodeProps,
@@ -53,6 +55,26 @@ function formatRelType(type: string): string {
 }
 
 // ─── Custom node types ────────────────────────────────────────────────────────
+
+interface StartNodeData extends Record<string, unknown> {
+  label: string;
+}
+
+function StartNode(_: NodeProps<Node<StartNodeData>>) {
+  return (
+    <div
+      className="rounded-full flex items-center justify-center font-bold text-white text-xs"
+      style={{
+        width: 64,
+        height: 64,
+        background: "#1f2937",
+        border: "2px solid #6b7280",
+      }}
+    >
+      START
+    </div>
+  );
+}
 
 interface TopicNodeData extends Record<string, unknown> {
   node: GraphNode;
@@ -140,6 +162,7 @@ function SegmentNode({ data }: NodeProps<Node<SegmentNodeData>>) {
 }
 
 const nodeTypes = {
+  start: StartNode,
   topic: TopicNode,
   segment: SegmentNode,
 };
@@ -152,26 +175,42 @@ export default function VideoKnowledgeGraph({
   selectedSegmentIds,
   onSegmentSelect,
 }: Props) {
-  // Build nodes: topics in a grid, segments below their parent topic
+  // Build nodes: Start node → topic nodes left-to-right → segment nodes below each topic
   const initialNodes = useMemo<Node[]>(() => {
-    const TOPIC_COLS = Math.ceil(Math.sqrt(graph.nodes.length));
+    const TOPIC_X_STEP = 320;  // horizontal gap between topic columns
+    const TOPIC_Y = 80;        // row for topic nodes
+    const SEG_Y_START = 230;   // row for first segment under a topic
+    const SEG_Y_STEP = 170;    // vertical gap between stacked segments
+    const START_X = 0;
+    const FIRST_TOPIC_X = 140; // leave room for the start node
+
     const topicPositions: Record<string, { x: number; y: number }> = {};
 
+    // Start node
+    const startNode: Node = {
+      id: "__start__",
+      type: "start",
+      position: { x: START_X, y: TOPIC_Y + 10 },
+      data: { label: "START" } as StartNodeData,
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+    };
+
+    // Topic nodes — laid out left-to-right in the order Gemini produced them
     const topicNodes: Node[] = graph.nodes.map((node, i) => {
-      const col = i % TOPIC_COLS;
-      const row = Math.floor(i / TOPIC_COLS);
-      const x = col * 300;
-      const y = row * 200;
-      topicPositions[node.id] = { x, y };
+      const x = FIRST_TOPIC_X + i * TOPIC_X_STEP;
+      topicPositions[node.id] = { x, y: TOPIC_Y };
       return {
         id: node.id,
         type: "topic",
-        position: { x, y },
+        position: { x, y: TOPIC_Y },
         data: { node } as TopicNodeData,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
       };
     });
 
-    // Group segments by topicId
+    // Group segments by topicId (preserve insertion order)
     const segsByTopic: Record<string, GraphSegment[]> = {};
     for (const seg of graph.segments) {
       if (!segsByTopic[seg.topicId]) segsByTopic[seg.topicId] = [];
@@ -179,15 +218,15 @@ export default function VideoKnowledgeGraph({
     }
 
     const segmentNodes: Node[] = graph.segments.map(segment => {
-      const parentPos = topicPositions[segment.topicId] ?? { x: 0, y: 0 };
+      const parentPos = topicPositions[segment.topicId] ?? { x: 0, y: TOPIC_Y };
       const siblings = segsByTopic[segment.topicId] ?? [];
       const idx = siblings.indexOf(segment);
       return {
         id: segment.id,
         type: "segment",
         position: {
-          x: parentPos.x + idx * 220,
-          y: parentPos.y + 140,
+          x: parentPos.x,
+          y: SEG_Y_START + idx * SEG_Y_STEP,
         },
         data: {
           segment,
@@ -195,19 +234,48 @@ export default function VideoKnowledgeGraph({
           onSegmentClick,
           onSegmentSelect,
         } as SegmentNodeData,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
       };
     });
 
-    return [...topicNodes, ...segmentNodes];
+    return [startNode, ...topicNodes, ...segmentNodes];
   }, [graph, selectedSegmentIds, onSegmentClick, onSegmentSelect]);
 
   const initialEdges = useMemo<Edge[]>(() => {
-    // Topic → segment edges (structural)
+    const arrowMarker = {
+      type: MarkerType.ArrowClosed,
+      width: 14,
+      height: 14,
+    };
+
+    // Start → first topic
+    const startEdges: Edge[] = graph.nodes.length > 0
+      ? [{
+          id: "start-to-first",
+          source: "__start__",
+          target: graph.nodes[0].id,
+          markerEnd: { ...arrowMarker, color: "#6b7280" },
+          style: { stroke: "#6b7280", strokeWidth: 1.5 },
+        }]
+      : [];
+
+    // Topic → next topic (sequential flow)
+    const topicChainEdges: Edge[] = graph.nodes.slice(0, -1).map((node, i) => ({
+      id: `topic-chain-${i}`,
+      source: node.id,
+      target: graph.nodes[i + 1].id,
+      markerEnd: { ...arrowMarker, color: "#4b5563" },
+      style: { stroke: "#4b5563", strokeWidth: 1.5 },
+    }));
+
+    // Topic → its segments (structural, vertical drop)
     const structuralEdges: Edge[] = graph.segments.map(seg => ({
       id: `topic-${seg.topicId}-${seg.id}`,
       source: seg.topicId,
       target: seg.id,
-      style: { stroke: "#374151", strokeWidth: 1 },
+      markerEnd: { ...arrowMarker, color: "#374151" },
+      style: { stroke: "#374151", strokeWidth: 1, strokeDasharray: "4 3" },
       animated: false,
     }));
 
@@ -219,13 +287,14 @@ export default function VideoKnowledgeGraph({
         source: edge.source,
         target: edge.target,
         animated: true,
+        markerEnd: { ...arrowMarker, color },
         label: formatRelType(edge.relationshipType),
         labelStyle: { fill: color, fontSize: 10 },
         style: { stroke: color, strokeWidth: 1.5 },
       };
     });
 
-    return [...structuralEdges, ...semanticEdges];
+    return [...startEdges, ...topicChainEdges, ...structuralEdges, ...semanticEdges];
   }, [graph]);
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
