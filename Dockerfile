@@ -1,10 +1,9 @@
 FROM node:20-slim
 
-# Install system deps: ffmpeg (with libfreetype = drawtext support), yt-dlp, chromium for Remotion
+# Install system deps: ffmpeg (full build = drawtext/libfreetype support on Debian), yt-dlp, Chromium for Remotion
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
-    python3-pip \
     curl \
     ca-certificates \
     fonts-liberation \
@@ -26,15 +25,17 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 
 WORKDIR /app
 
-# Copy package files and install deps
+# Install ALL deps first (needed for build)
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Copy source
+# Copy source and build
 COPY . .
-
-# Build Next.js
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
+
+# Prune dev deps after build
+RUN npm prune --omit=dev
 
 EXPOSE 3000
 
