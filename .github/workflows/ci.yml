@@ -43,48 +43,53 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check for large-pr label
+        id: check-label
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "Labels: $LABELS"
+          if echo "$LABELS" | grep -q '"large-pr"'; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️  large-pr label detected — skipping PR size check."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check PR size (max 1000 lines)
+        if: steps.check-label.outputs.skip == 'false'
         run: |
           BASE=${{ github.event.pull_request.base.sha }}
           HEAD=${{ github.event.pull_request.head.sha }}
 
-          LINES=$(git diff --stat $BASE $HEAD \
-            -- ':!package-lock.json' \
-               ':!yarn.lock' \
-               ':!pnpm-lock.yaml' \
-               ':!*.lock' \
-               ':!.next/**' \
-               ':!build/**' \
-               ':!dist/**' \
-               ':!out/**' \
-               ':!**/*.min.js' \
-               ':!**/*.min.css' \
-               ':!src/**/__snapshots__/**' \
-            | tail -1 \
-            | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+          ADDED=$(git diff --numstat $BASE $HEAD \
+            -- ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml' ':!*.lock' \
+               ':!.next/**' ':!build/**' ':!dist/**' ':!out/**' \
+               ':!**/*.min.js' ':!**/*.min.css' ':!src/**/__snapshots__/**' \
+            | awk '{sum += $1} END {print sum+0}')
 
-          DELETIONS=$(git diff --stat $BASE $HEAD \
-            -- ':!package-lock.json' \
-               ':!yarn.lock' \
-               ':!pnpm-lock.yaml' \
-               ':!*.lock' \
-               ':!.next/**' \
-               ':!build/**' \
-               ':!dist/**' \
-               ':!out/**' \
-               ':!**/*.min.js' \
-               ':!**/*.min.css' \
-               ':!src/**/__snapshots__/**' \
-            | tail -1 \
-            | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo 0)
+          REMOVED=$(git diff --numstat $BASE $HEAD \
+            -- ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml' ':!*.lock' \
+               ':!.next/**' ':!build/**' ':!dist/**' ':!out/**' \
+               ':!**/*.min.js' ':!**/*.min.css' ':!src/**/__snapshots__/**' \
+            | awk '{sum += $2} END {print sum+0}')
 
-          TOTAL=$((LINES + DELETIONS))
-          echo "PR size: +$LINES -$DELETIONS = $TOTAL lines changed (excluding lock/generated files)"
+          TOTAL=$((ADDED + REMOVED))
+          echo "PR size: +$ADDED -$REMOVED = $TOTAL lines changed (lock/generated files excluded)"
 
           if [ "$TOTAL" -gt 1000 ]; then
+            echo ""
             echo "❌ PR is too large ($TOTAL lines). Max allowed: 1000 lines."
-            echo "   Break it into smaller PRs. Lock files and generated files are excluded from the count."
+            echo "   Options:"
+            echo "   1. Break into smaller PRs"
+            echo "   2. Add the 'large-pr' label with a justification comment if this is unavoidable"
             exit 1
           fi
 
           echo "✅ PR size OK ($TOTAL / 1000 lines)"
+
+      - name: PR size skipped
+        if: steps.check-label.outputs.skip == 'true'
+        run: |
+          echo "✅ PR size check skipped (large-pr label present)"
+          echo "   Make sure there's a comment on this PR justifying the large size."
