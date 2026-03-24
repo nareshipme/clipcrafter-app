@@ -34,3 +34,57 @@ jobs:
         run: npx prettier --check "src/**/*.{ts,tsx}"
       - name: Lint (zero errors allowed)
         run: npx eslint src --ext .ts,.tsx
+
+  pr-size:
+    name: pr-size
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check PR size (max 1000 lines)
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+
+          LINES=$(git diff --stat $BASE $HEAD \
+            -- ':!package-lock.json' \
+               ':!yarn.lock' \
+               ':!pnpm-lock.yaml' \
+               ':!*.lock' \
+               ':!.next/**' \
+               ':!build/**' \
+               ':!dist/**' \
+               ':!out/**' \
+               ':!**/*.min.js' \
+               ':!**/*.min.css' \
+               ':!src/**/__snapshots__/**' \
+            | tail -1 \
+            | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+
+          DELETIONS=$(git diff --stat $BASE $HEAD \
+            -- ':!package-lock.json' \
+               ':!yarn.lock' \
+               ':!pnpm-lock.yaml' \
+               ':!*.lock' \
+               ':!.next/**' \
+               ':!build/**' \
+               ':!dist/**' \
+               ':!out/**' \
+               ':!**/*.min.js' \
+               ':!**/*.min.css' \
+               ':!src/**/__snapshots__/**' \
+            | tail -1 \
+            | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo 0)
+
+          TOTAL=$((LINES + DELETIONS))
+          echo "PR size: +$LINES -$DELETIONS = $TOTAL lines changed (excluding lock/generated files)"
+
+          if [ "$TOTAL" -gt 1000 ]; then
+            echo "❌ PR is too large ($TOTAL lines). Max allowed: 1000 lines."
+            echo "   Break it into smaller PRs. Lock files and generated files are excluded from the count."
+            exit 1
+          fi
+
+          echo "✅ PR size OK ($TOTAL / 1000 lines)"
