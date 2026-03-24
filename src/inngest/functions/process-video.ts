@@ -1,6 +1,7 @@
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
+import fsSync from "fs";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import ffmpeg from "fluent-ffmpeg";
@@ -54,16 +55,40 @@ function isYouTubeUrl(str: string): boolean {
   return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(str);
 }
 
+async function getYtCookiesPath(): Promise<string | null> {
+  const cookiesPath = "/tmp/yt-cookies.txt";
+  // Only fetch once per container lifetime
+  if (fsSync.existsSync(cookiesPath)) return cookiesPath;
+  try {
+    const res = await r2Client.send(new GetObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: "config/yt-cookies.txt",
+    }));
+    const chunks: Buffer[] = [];
+    for await (const chunk of res.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    fsSync.writeFileSync(cookiesPath, Buffer.concat(chunks));
+    return cookiesPath;
+  } catch (e) {
+    console.warn("yt-dlp: could not load cookies from R2:", e);
+    return null;
+  }
+}
+
 async function downloadYouTubeVideo(url: string, outputPath: string): Promise<void> {
-  await execFileAsync("yt-dlp", [
+  const cookiesPath = await getYtCookiesPath();
+  const args = [
     "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
     "--merge-output-format", "mp4",
     "--output", outputPath,
     "--no-playlist",
-    "--extractor-args", "youtube:player_client=tv_embedded,android",
+    "--extractor-args", "youtube:player_client=web,android",
     "--socket-timeout", "30",
-    url,
-  ], { timeout: 5 * 60 * 1000 }); // 5 min max, throws if exceeded
+  ];
+  if (cookiesPath) args.push("--cookies", cookiesPath);
+  args.push(url);
+  await execFileAsync("yt-dlp", args, { timeout: 5 * 60 * 1000 }); // 5 min max
 }
 
 function extractAudioFromVideo(videoPath: string, audioPath: string): Promise<void> {
