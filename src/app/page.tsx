@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const features = [
   {
     title: "Trim",
@@ -28,18 +30,18 @@ export default function Home() {
           AI-powered video tools for creators
         </p>
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs sm:max-w-none sm:w-auto">
-          <a
+          <Link
             href="/sign-up"
             className="rounded-lg bg-violet-600 px-8 py-3 font-semibold hover:bg-violet-500 transition-colors text-center"
           >
             Get Started
-          </a>
-          <a
+          </Link>
+          <Link
             href="/sign-in"
             className="rounded-lg border border-gray-700 px-8 py-3 font-semibold hover:border-gray-500 transition-colors text-center"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </section>
 

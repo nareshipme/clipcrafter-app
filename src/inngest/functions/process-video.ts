@@ -113,6 +113,7 @@ export interface ProcessVideoEventData {
 
 export async function processVideoHandler(
   event: { data: ProcessVideoEventData },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   step: any
 ): Promise<Record<string, unknown>> {
   const { projectId } = event.data;
