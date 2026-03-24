@@ -79,16 +79,18 @@ async function getYtCookiesPath(): Promise<string | null> {
 async function downloadYouTubeVideo(url: string, outputPath: string): Promise<void> {
   const cookiesPath = await getYtCookiesPath();
   const args = [
-    "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "--format", "bestvideo[ext=mp4][protocol^=http]+bestaudio[ext=m4a][protocol^=http]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
     "--merge-output-format", "mp4",
     "--output", outputPath,
     "--no-playlist",
-    "--extractor-args", "youtube:player_client=web,android",
-    "--socket-timeout", "30",
+    "--extractor-args", "youtube:player_client=web",
+    "--socket-timeout", "60",
+    "--retries", "5",
+    "--retry-sleep", "exp=1:30",
   ];
   if (cookiesPath) args.push("--cookies", cookiesPath);
   args.push(url);
-  await execFileAsync("yt-dlp", args, { timeout: 5 * 60 * 1000 }); // 5 min max
+  await execFileAsync("yt-dlp", args, { timeout: 10 * 60 * 1000 }); // 10 min max
 }
 
 function extractAudioFromVideo(videoPath: string, audioPath: string): Promise<void> {
