@@ -1,12 +1,24 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export const r2Client = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+function createR2Client() {
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(`R2 credentials missing: R2_ACCESS_KEY_ID=${!!accessKeyId} R2_SECRET_ACCESS_KEY=${!!secretAccessKey}`);
+  }
+  return new S3Client({
+    region: "auto",
+    endpoint: process.env.R2_ENDPOINT,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+}
+
+let _r2Client: S3Client | null = null;
+export const r2Client = new Proxy({} as S3Client, {
+  get(_target, prop) {
+    if (!_r2Client) _r2Client = createR2Client();
+    return (_r2Client as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 
