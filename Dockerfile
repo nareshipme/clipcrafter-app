@@ -1,4 +1,5 @@
 FROM node:20-slim
+ARG CACHEBUST=1
 
 # Install system deps: ffmpeg (full build = drawtext/libfreetype support on Debian), yt-dlp, Chromium for Remotion
 RUN apt-get update && apt-get install -y \
