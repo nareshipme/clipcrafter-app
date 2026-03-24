@@ -60,7 +60,7 @@ async function downloadYouTubeVideo(url: string, outputPath: string): Promise<vo
     "--merge-output-format", "mp4",
     "--output", outputPath,
     "--no-playlist",
-    "--extractor-args", "youtube:player_client=web,android",
+    "--extractor-args", "youtube:player_client=tv_embedded,android",
     "--socket-timeout", "30",
     url,
   ], { timeout: 5 * 60 * 1000 }); // 5 min max, throws if exceeded
