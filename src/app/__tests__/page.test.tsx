@@ -5,16 +5,12 @@ import Home from "../page";
 describe("Landing page", () => {
   it("displays ClipCrafter headline", () => {
     render(<Home />);
-    expect(
-      screen.getByRole("heading", { name: /clipcrafter/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /clipcrafter/i })).toBeInTheDocument();
   });
 
   it("displays tagline", () => {
     render(<Home />);
-    expect(
-      screen.getByText(/ai-powered video tools for creators/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/ai-powered video tools for creators/i)).toBeInTheDocument();
   });
 
   it("has Get Started CTA linking to /sign-up", () => {

@@ -57,7 +57,11 @@ export const generateClips = inngest.createFunction(
         // Manual: use highlights.ts for targeted extraction
         const { generateHighlights } = await import("@/lib/highlights");
         const { buildGraphFromClips } = await import("@/lib/video-graph");
-        const highlights = await generateHighlights(formatted, transcript, { count, prompt, targetDuration });
+        const highlights = await generateHighlights(formatted, transcript, {
+          count,
+          prompt,
+          targetDuration,
+        });
         return buildGraphFromClips(highlights);
       } else {
         // Auto: Narrative Designer builds the graph directly
@@ -78,8 +82,8 @@ export const generateClips = inngest.createFunction(
       }
 
       // Map graph segments → clips, enriching from parent node
-      const insertPayload = graph.segments.map(seg => {
-        const node = graph.nodes.find(n => n.id === seg.topicId);
+      const insertPayload = graph.segments.map((seg) => {
+        const node = graph.nodes.find((n) => n.id === seg.topicId);
         return {
           project_id: projectId,
           title: seg.hookSentence?.slice(0, 60) || node?.label || "Untitled",

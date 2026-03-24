@@ -87,10 +87,7 @@ export default function ProjectCard({ project, onRetry, onDelete }: ProjectCardP
         </span>
       </div>
 
-      <p
-        data-testid="project-timestamp"
-        className="text-gray-500 text-xs"
-      >
+      <p data-testid="project-timestamp" className="text-gray-500 text-xs">
         {formatRelativeTime(project.created_at)}
       </p>
 

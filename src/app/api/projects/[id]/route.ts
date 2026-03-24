@@ -8,10 +8,7 @@ import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { getSupabaseUserId } from "@/lib/user";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -27,7 +24,8 @@ export async function DELETE(
     .single();
 
   if (error || !project) return Response.json({ error: "Project not found" }, { status: 404 });
-  if (project.user_id !== supabaseUserId) return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (project.user_id !== supabaseUserId)
+    return Response.json({ error: "Forbidden" }, { status: 403 });
 
   // Delete R2 files (best effort — don't fail if missing)
   const r2Keys: string[] = [];
@@ -35,16 +33,11 @@ export async function DELETE(
   if (project.audio_key) r2Keys.push(project.audio_key);
 
   await Promise.allSettled(
-    r2Keys.map(key =>
-      r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }))
-    )
+    r2Keys.map((key) => r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key })))
   );
 
   // Delete from Supabase (cascades to transcripts + highlights via FK)
-  const { error: deleteError } = await supabaseAdmin
-    .from("projects")
-    .delete()
-    .eq("id", id);
+  const { error: deleteError } = await supabaseAdmin.from("projects").delete().eq("id", id);
 
   if (deleteError) return Response.json({ error: deleteError.message }, { status: 500 });
 

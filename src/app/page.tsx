@@ -48,10 +48,7 @@ export default function Home() {
       <section className="py-12 px-6">
         <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="rounded-xl bg-gray-900 border border-gray-800 p-6"
-            >
+            <div key={feature.title} className="rounded-xl bg-gray-900 border border-gray-800 p-6">
               <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
               <p className="text-sm text-gray-400">{feature.description}</p>
             </div>

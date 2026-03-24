@@ -8,6 +8,13 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+echo "🎨 Checking formatting..."
+npx prettier --check "src/**/*.{ts,tsx}"
+if [ $? -ne 0 ]; then
+  echo "❌ Formatting issues. Run: npx prettier --write 'src/**/*.{ts,tsx}'"
+  exit 1
+fi
+
 echo "🔍 Linting..."
 npx eslint src --ext .ts,.tsx
 if [ $? -ne 0 ]; then

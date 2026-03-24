@@ -74,7 +74,7 @@ async function callLLMWithModel(
   opts: LLMOptions,
   baseUrl: string,
   apiKey: string,
-  provider: string,
+  provider: string
 ): Promise<string> {
   const messages: Array<{ role: string; content: string }> = [];
   if (opts.systemPrompt) messages.push({ role: "system", content: opts.systemPrompt });
@@ -102,7 +102,7 @@ async function callLLMWithModel(
     throw new Error(`LLM call failed (${provider}/${model} ${res.status}): ${err.slice(0, 300)}`);
   }
 
-  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error(`LLM returned empty content (${provider}/${model})`);
 
@@ -110,16 +110,11 @@ async function callLLMWithModel(
   return content;
 }
 
-export async function callLLM(
-  prompt: string,
-  opts: LLMOptions = {}
-): Promise<string> {
+export async function callLLM(prompt: string, opts: LLMOptions = {}): Promise<string> {
   const { model, baseUrl, apiKey, provider } = getConfig();
 
   // For Gemini, try fallback chain if configured model fails
-  const models = provider === "gemini"
-    ? [...new Set([model, ...GEMINI_MODELS])]
-    : [model];
+  const models = provider === "gemini" ? [...new Set([model, ...GEMINI_MODELS])] : [model];
 
   let lastErr: Error | null = null;
   for (const m of models) {
@@ -127,9 +122,13 @@ export async function callLLM(
       return await callLLMWithModel(m, prompt, opts, baseUrl, apiKey, provider);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const retryable = msg.includes("404") || msg.includes("deprecated") ||
-        msg.includes("not found") || msg.includes("no longer available") ||
-        msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota");
+      const retryable =
+        msg.includes("404") ||
+        msg.includes("deprecated") ||
+        msg.includes("not found") ||
+        msg.includes("no longer available") ||
+        msg.includes("RESOURCE_EXHAUSTED") ||
+        msg.includes("quota");
       console.warn(`[llm] ${provider}/${m} failed: ${msg.slice(0, 120)}`);
       lastErr = err instanceof Error ? err : new Error(msg);
       if (!retryable) throw lastErr;

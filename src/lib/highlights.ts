@@ -31,7 +31,7 @@ export interface TopicMap {
   topic: string;
   summary: string;
   clip_start: number; // best clip start (MM:SS parsed)
-  clip_end: number;   // best clip end
+  clip_end: number; // best clip end
   segments: TopicSegment[]; // all transcript segments under this topic
 }
 
@@ -42,17 +42,21 @@ export interface TranscriptSegmentInput {
 }
 
 export interface HighlightOptions {
-  count?: number;          // if set: manual N-clip mode; if unset: auto topic mode
-  prompt?: string;         // search filter within auto mode
+  count?: number; // if set: manual N-clip mode; if unset: auto topic mode
+  prompt?: string; // search filter within auto mode
   targetDuration?: number; // total seconds constraint (manual mode)
 }
 
 /** Format segments as [MM:SS] lines */
 export function formatSegmentsForHighlights(segments: TranscriptSegmentInput[]): string {
   return segments
-    .map(s => {
-      const mm = Math.floor(s.start / 60).toString().padStart(2, "0");
-      const ss = Math.floor(s.start % 60).toString().padStart(2, "0");
+    .map((s) => {
+      const mm = Math.floor(s.start / 60)
+        .toString()
+        .padStart(2, "0");
+      const ss = Math.floor(s.start % 60)
+        .toString()
+        .padStart(2, "0");
       return `[${mm}:${ss}] ${s.text}`;
     })
     .join("\n");
@@ -70,7 +74,9 @@ export function thinTranscript(formatted: string, maxChars = 15_000): string {
   for (let step = 2; step <= 6; step++) {
     const thinned = lines.filter((_, i) => i % step === 0).join("\n");
     if (thinned.length <= maxChars) {
-      console.log(`[highlights] transcript thinned (1 of every ${step} segments, ${thinned.length} chars)`);
+      console.log(
+        `[highlights] transcript thinned (1 of every ${step} segments, ${thinned.length} chars)`
+      );
       return thinned;
     }
   }
@@ -89,7 +95,9 @@ import { callLLM, parseLLMJson } from "@/lib/llm";
 
 // ─── Auto mode: ONE-PASS topic map ───────────────────────────────────────────
 
-const TOPIC_MAP_PROMPT = (transcript: string) => `You are an expert video editor analyzing a transcript.
+const TOPIC_MAP_PROMPT = (
+  transcript: string
+) => `You are an expert video editor analyzing a transcript.
 
 Transcript (format: [MM:SS] text):
 ${transcript}
@@ -142,24 +150,27 @@ export async function buildTopicMap(
   }
 
   return parsed
-    .filter(t => t.topic && t.clip_start && t.clip_end)
-    .map(t => ({
+    .filter((t) => t.topic && t.clip_start && t.clip_end)
+    .map((t) => ({
       topic: t.topic,
       summary: t.summary ?? "",
       clip_start: parseMMSS(t.clip_start),
       clip_end: parseMMSS(t.clip_end),
-      segments: (t.segments ?? []).map(s => ({
-        start: parseMMSS(s.start),
-        end: parseMMSS(s.end),
-        text: s.text ?? "",
-      })).filter(s => !isNaN(s.start) && !isNaN(s.end)),
+      segments: (t.segments ?? [])
+        .map((s) => ({
+          start: parseMMSS(s.start),
+          end: parseMMSS(s.end),
+          text: s.text ?? "",
+        }))
+        .filter((s) => !isNaN(s.start) && !isNaN(s.end)),
     }))
-    .filter(t => !isNaN(t.clip_start) && !isNaN(t.clip_end) && t.clip_end > t.clip_start);
+    .filter((t) => !isNaN(t.clip_start) && !isNaN(t.clip_end) && t.clip_end > t.clip_start);
 }
 
 // ─── Convert TopicMap → Highlights (with enrichment) ─────────────────────────
 
-const ENRICH_PROMPT = (clips: Array<{ start: number; end: number; text: string; topic: string }>) => `
+const ENRICH_PROMPT = (clips: Array<{ start: number; end: number; text: string; topic: string }>) =>
+  `
 You are a social media content strategist.
 
 For each video clip, provide engagement metadata:
@@ -173,12 +184,33 @@ Return ONLY a JSON array (one object per clip, same order). No markdown.
 [{ "score": int, "score_reason": str, "reason": str, "hashtags": [str], "clip_title": str }]
 
 Clips:
-${clips.map((c, i) => `${i + 1}. [${Math.floor(c.start / 60).toString().padStart(2, "0")}:${Math.floor(c.start % 60).toString().padStart(2, "0")} → ${Math.floor(c.end / 60).toString().padStart(2, "0")}:${Math.floor(c.end % 60).toString().padStart(2, "0")}] Topic: ${c.topic}\n   ${c.text}`).join("\n\n")}
+${clips
+  .map(
+    (c, i) =>
+      `${i + 1}. [${Math.floor(c.start / 60)
+        .toString()
+        .padStart(2, "0")}:${Math.floor(c.start % 60)
+        .toString()
+        .padStart(2, "0")} → ${Math.floor(c.end / 60)
+        .toString()
+        .padStart(2, "0")}:${Math.floor(c.end % 60)
+        .toString()
+        .padStart(2, "0")}] Topic: ${c.topic}\n   ${c.text}`
+  )
+  .join("\n\n")}
 `.trim();
 
 async function enrichClips(
   clips: Array<{ start: number; end: number; text: string; topic: string }>
-): Promise<Array<{ score: number; score_reason: string; reason: string; hashtags: string[]; clip_title: string }>> {
+): Promise<
+  Array<{
+    score: number;
+    score_reason: string;
+    reason: string;
+    hashtags: string[];
+    clip_title: string;
+  }>
+> {
   const raw = await callLLM(ENRICH_PROMPT(clips));
   return parseLLMJson(raw);
 }
@@ -197,10 +229,12 @@ export async function generateAutoHighlights(
     return generateHighlights(formattedTranscript, rawSegments, { count: 5 });
   }
 
-  const clips = topicMap.map(t => {
+  const clips = topicMap.map((t) => {
     const text = rawSegments
-      .filter(s => s.end > t.clip_start && s.start < t.clip_end)
-      .map(s => s.text).join(" ").trim();
+      .filter((s) => s.end > t.clip_start && s.start < t.clip_end)
+      .map((s) => s.text)
+      .join(" ")
+      .trim();
     return { start: t.clip_start, end: t.clip_end, text, topic: t.topic };
   });
 
@@ -208,7 +242,13 @@ export async function generateAutoHighlights(
   try {
     enriched = await enrichClips(clips);
   } catch {
-    enriched = clips.map(() => ({ score: 50, score_reason: "", reason: "", hashtags: [], clip_title: "" }));
+    enriched = clips.map(() => ({
+      score: 50,
+      score_reason: "",
+      reason: "",
+      hashtags: [],
+      clip_title: "",
+    }));
   }
 
   return clips.map((c, i) => ({
@@ -247,7 +287,10 @@ Example:
 Rules: use only timestamps from the transcript. No explanation.`;
 };
 
-async function findTimeRanges(transcript: string, opts?: HighlightOptions): Promise<Array<{ start: number; end: number }>> {
+async function findTimeRanges(
+  transcript: string,
+  opts?: HighlightOptions
+): Promise<Array<{ start: number; end: number }>> {
   const raw = await callLLM(FIND_SEGMENTS_PROMPT(transcript, opts));
   const results: Array<{ start: number; end: number }> = [];
   const linePattern = /(\d{1,2}:\d{2})\s*,\s*(\d{1,2}:\d{2})/g;
@@ -279,17 +322,32 @@ export async function generateHighlights(
   if (timeRanges.length === 0) return [];
 
   const segmentsWithText = timeRanges.map(({ start, end }) => {
-    const text = rawSegments
-      ?.filter(s => s.end > start && s.start < end)
-      .map(s => s.text).join(" ").trim() ?? "";
+    const text =
+      rawSegments
+        ?.filter((s) => s.end > start && s.start < end)
+        .map((s) => s.text)
+        .join(" ")
+        .trim() ?? "";
     return { start, end, text, topic: undefined as string | undefined };
   });
 
-  let enriched: Array<{ score: number; score_reason: string; reason: string; hashtags: string[]; clip_title: string }>;
+  let enriched: Array<{
+    score: number;
+    score_reason: string;
+    reason: string;
+    hashtags: string[];
+    clip_title: string;
+  }>;
   try {
-    enriched = await enrichClips(segmentsWithText.map(s => ({ ...s, topic: "" })));
+    enriched = await enrichClips(segmentsWithText.map((s) => ({ ...s, topic: "" })));
   } catch {
-    enriched = segmentsWithText.map(() => ({ score: 50, score_reason: "", reason: "", hashtags: [], clip_title: "" }));
+    enriched = segmentsWithText.map(() => ({
+      score: 50,
+      score_reason: "",
+      reason: "",
+      hashtags: [],
+      clip_title: "",
+    }));
   }
 
   return segmentsWithText.map((seg, i) => ({
@@ -323,12 +381,14 @@ export async function enrichClipsForProject(
 
   if (!clips?.length) return;
 
-  const clipsForEnrich = clips.map(c => ({
+  const clipsForEnrich = clips.map((c) => ({
     start: c.start_sec,
     end: c.end_sec,
     text: rawSegments
-      .filter(s => s.end > c.start_sec && s.start < c.end_sec)
-      .map(s => s.text).join(" ").trim(),
+      .filter((s) => s.end > c.start_sec && s.start < c.end_sec)
+      .map((s) => s.text)
+      .join(" ")
+      .trim(),
     topic: c.topic ?? "",
   }));
 

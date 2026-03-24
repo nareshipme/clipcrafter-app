@@ -17,24 +17,29 @@ export interface GraphNode {
   id: string;
   label: string;
   summary: string;
-  importance: number;       // 0-100
+  importance: number; // 0-100
   speakerId: string | null;
 }
 
 export interface GraphSegment {
   id: string;
   topicId: string;
-  start: number;            // seconds
+  start: number; // seconds
   end: number;
-  hookSentence: string;     // first punchy sentence for preview
-  intensityScore: number;   // 0-100 viral potential
+  hookSentence: string; // first punchy sentence for preview
+  intensityScore: number; // 0-100 viral potential
 }
 
 export interface GraphEdge {
-  source: string;           // segment id
-  target: string;           // segment id
-  relationshipType: "logical-flow" | "contrast" | "setup-payoff" | "claim-proof" | "problem-solution";
-  emotionalArc?: string;    // e.g. "tension → release"
+  source: string; // segment id
+  target: string; // segment id
+  relationshipType:
+    | "logical-flow"
+    | "contrast"
+    | "setup-payoff"
+    | "claim-proof"
+    | "problem-solution";
+  emotionalArc?: string; // e.g. "tension → release"
 }
 
 export interface VideoGraph {
@@ -43,7 +48,9 @@ export interface VideoGraph {
   edges: GraphEdge[];
 }
 
-const VIDEO_GRAPH_PROMPT = (transcript: string) => `You are a Narrative Designer and viral content strategist.
+const VIDEO_GRAPH_PROMPT = (
+  transcript: string
+) => `You are a Narrative Designer and viral content strategist.
 
 Analyze this timestamped transcript and build a semantic graph of the content.
 
@@ -106,15 +113,17 @@ Rules:
  * This ensures list view and graph view show the SAME clips with the same timestamps.
  * Edges are inferred by time order within each topic.
  */
-export function buildGraphFromClips(clips: Array<{
-  start: number;
-  end: number;
-  text: string;
-  topic?: string;
-  clip_title?: string;
-  score?: number;
-  reason?: string;
-}>): VideoGraph {
+export function buildGraphFromClips(
+  clips: Array<{
+    start: number;
+    end: number;
+    text: string;
+    topic?: string;
+    clip_title?: string;
+    score?: number;
+    reason?: string;
+  }>
+): VideoGraph {
   // Group by topic
   const topicGroups = new Map<string, typeof clips>();
   for (const clip of clips) {
@@ -136,7 +145,9 @@ export function buildGraphFromClips(clips: Array<{
       id: nodeId,
       label: topic,
       summary: topicClips[0]?.reason ?? topic,
-      importance: Math.round(topicClips.reduce((s, c) => s + (c.score ?? 50), 0) / topicClips.length),
+      importance: Math.round(
+        topicClips.reduce((s, c) => s + (c.score ?? 50), 0) / topicClips.length
+      ),
       speakerId: null,
     });
 
@@ -185,22 +196,44 @@ export async function buildVideoGraph(
   });
 
   const parsed = parseLLMJson<{
-    nodes: Array<{ id: string; label: string; summary: string; importance: number; speakerId: string | null }>;
-    segments: Array<{ id: string; topicId: string; start: string; end: string; hookSentence: string; intensityScore: number }>;
-    edges: Array<{ source: string; target: string; relationshipType: GraphEdge["relationshipType"]; emotionalArc?: string }>;
+    nodes: Array<{
+      id: string;
+      label: string;
+      summary: string;
+      importance: number;
+      speakerId: string | null;
+    }>;
+    segments: Array<{
+      id: string;
+      topicId: string;
+      start: string;
+      end: string;
+      hookSentence: string;
+      intensityScore: number;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      relationshipType: GraphEdge["relationshipType"];
+      emotionalArc?: string;
+    }>;
   }>(raw);
 
   // Normalise: convert MM:SS strings → numbers on segments
   const graph: VideoGraph = {
     nodes: parsed.nodes ?? [],
-    segments: (parsed.segments ?? []).map(s => ({
-      ...s,
-      start: parseMMSS(s.start),
-      end: parseMMSS(s.end),
-    })).filter(s => !isNaN(s.start) && !isNaN(s.end) && s.end > s.start),
+    segments: (parsed.segments ?? [])
+      .map((s) => ({
+        ...s,
+        start: parseMMSS(s.start),
+        end: parseMMSS(s.end),
+      }))
+      .filter((s) => !isNaN(s.start) && !isNaN(s.end) && s.end > s.start),
     edges: parsed.edges ?? [],
   };
 
-  console.log(`[video-graph] ${graph.nodes.length} topics, ${graph.segments.length} segments, ${graph.edges.length} edges`);
+  console.log(
+    `[video-graph] ${graph.nodes.length} topics, ${graph.segments.length} segments, ${graph.edges.length} edges`
+  );
   return graph;
 }

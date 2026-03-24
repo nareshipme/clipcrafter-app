@@ -33,20 +33,29 @@ function formatTime(seconds: number): string {
 }
 
 function speakerColor(speakerId: string | null): { border: string; bg: string; badge: string } {
-  if (speakerId === "Speaker 0" || speakerId === "0") return { border: "#7c3aed", bg: "#2e1065", badge: "bg-violet-700" };
-  if (speakerId === "Speaker 1" || speakerId === "1") return { border: "#2563eb", bg: "#172554", badge: "bg-blue-700" };
-  if (speakerId === "Speaker 2" || speakerId === "2") return { border: "#16a34a", bg: "#052e16", badge: "bg-green-700" };
+  if (speakerId === "Speaker 0" || speakerId === "0")
+    return { border: "#7c3aed", bg: "#2e1065", badge: "bg-violet-700" };
+  if (speakerId === "Speaker 1" || speakerId === "1")
+    return { border: "#2563eb", bg: "#172554", badge: "bg-blue-700" };
+  if (speakerId === "Speaker 2" || speakerId === "2")
+    return { border: "#16a34a", bg: "#052e16", badge: "bg-green-700" };
   return { border: "#4b5563", bg: "#111827", badge: "bg-gray-700" };
 }
 
 function edgeColor(type: string): string {
   switch (type) {
-    case "logical-flow": return "#6b7280";
-    case "setup-payoff": return "#7c3aed";
-    case "claim-proof": return "#2563eb";
-    case "contrast": return "#ea580c";
-    case "problem-solution": return "#16a34a";
-    default: return "#6b7280";
+    case "logical-flow":
+      return "#6b7280";
+    case "setup-payoff":
+      return "#7c3aed";
+    case "claim-proof":
+      return "#2563eb";
+    case "contrast":
+      return "#ea580c";
+    case "problem-solution":
+      return "#16a34a";
+    default:
+      return "#6b7280";
   }
 }
 
@@ -100,9 +109,7 @@ function TopicNode({ data }: NodeProps<Node<TopicNodeData>>) {
         >
           {node.importance}
         </span>
-        <p className={`font-bold text-white leading-tight ${size} flex-1 min-w-0`}>
-          {node.label}
-        </p>
+        <p className={`font-bold text-white leading-tight ${size} flex-1 min-w-0`}>{node.label}</p>
       </div>
       <p className="text-gray-400 text-xs leading-snug line-clamp-2">{node.summary}</p>
     </div>
@@ -133,7 +140,7 @@ function SegmentNode({ data }: NodeProps<Node<SegmentNodeData>>) {
       <div className="flex items-center gap-2">
         <div
           className="shrink-0"
-          onClick={e => {
+          onClick={(e) => {
             e.stopPropagation();
             onSegmentSelect(segment.id, !selected);
           }}
@@ -150,10 +157,10 @@ function SegmentNode({ data }: NodeProps<Node<SegmentNodeData>>) {
         </p>
       </div>
       <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
-        <span>{formatTime(segment.start)} → {formatTime(segment.end)}</span>
-        <span
-          className="ml-auto shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-300"
-        >
+        <span>
+          {formatTime(segment.start)} → {formatTime(segment.end)}
+        </span>
+        <span className="ml-auto shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-300">
           {segment.intensityScore}
         </span>
       </div>
@@ -177,10 +184,10 @@ export default function VideoKnowledgeGraph({
 }: Props) {
   // Build nodes: Start node → topic nodes left-to-right → segment nodes below each topic
   const initialNodes = useMemo<Node[]>(() => {
-    const TOPIC_X_STEP = 320;  // horizontal gap between topic columns
-    const TOPIC_Y = 80;        // row for topic nodes
-    const SEG_Y_START = 230;   // row for first segment under a topic
-    const SEG_Y_STEP = 170;    // vertical gap between stacked segments
+    const TOPIC_X_STEP = 320; // horizontal gap between topic columns
+    const TOPIC_Y = 80; // row for topic nodes
+    const SEG_Y_START = 230; // row for first segment under a topic
+    const SEG_Y_STEP = 170; // vertical gap between stacked segments
     const START_X = 0;
     const FIRST_TOPIC_X = 140; // leave room for the start node
 
@@ -217,7 +224,7 @@ export default function VideoKnowledgeGraph({
       segsByTopic[seg.topicId].push(seg);
     }
 
-    const segmentNodes: Node[] = graph.segments.map(segment => {
+    const segmentNodes: Node[] = graph.segments.map((segment) => {
       const parentPos = topicPositions[segment.topicId] ?? { x: 0, y: TOPIC_Y };
       const siblings = segsByTopic[segment.topicId] ?? [];
       const idx = siblings.indexOf(segment);
@@ -250,15 +257,18 @@ export default function VideoKnowledgeGraph({
     };
 
     // Start → first topic
-    const startEdges: Edge[] = graph.nodes.length > 0
-      ? [{
-          id: "start-to-first",
-          source: "__start__",
-          target: graph.nodes[0].id,
-          markerEnd: { ...arrowMarker, color: "#6b7280" },
-          style: { stroke: "#6b7280", strokeWidth: 1.5 },
-        }]
-      : [];
+    const startEdges: Edge[] =
+      graph.nodes.length > 0
+        ? [
+            {
+              id: "start-to-first",
+              source: "__start__",
+              target: graph.nodes[0].id,
+              markerEnd: { ...arrowMarker, color: "#6b7280" },
+              style: { stroke: "#6b7280", strokeWidth: 1.5 },
+            },
+          ]
+        : [];
 
     // Topic → next topic (sequential flow)
     const topicChainEdges: Edge[] = graph.nodes.slice(0, -1).map((node, i) => ({
@@ -270,7 +280,7 @@ export default function VideoKnowledgeGraph({
     }));
 
     // Topic → its segments (structural, vertical drop)
-    const structuralEdges: Edge[] = graph.segments.map(seg => ({
+    const structuralEdges: Edge[] = graph.segments.map((seg) => ({
       id: `topic-${seg.topicId}-${seg.id}`,
       source: seg.topicId,
       target: seg.id,
@@ -302,7 +312,7 @@ export default function VideoKnowledgeGraph({
 
   // Keep segment selected state in sync when selectedSegmentIds changes
   const nodesWithSelection = useMemo(() => {
-    return nodes.map(node => {
+    return nodes.map((node) => {
       if (node.type !== "segment") return node;
       const seg = (node.data as SegmentNodeData).segment;
       const selected = selectedSegmentIds.has(seg.id);
@@ -333,15 +343,8 @@ export default function VideoKnowledgeGraph({
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          color="#374151"
-          gap={20}
-          size={1}
-        />
-        <Controls
-          className="!bg-gray-900 !border-gray-700 !text-gray-300"
-        />
+        <Background variant={BackgroundVariant.Dots} color="#374151" gap={20} size={1} />
+        <Controls className="!bg-gray-900 !border-gray-700 !text-gray-300" />
       </ReactFlow>
     </div>
   );

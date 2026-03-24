@@ -9,7 +9,9 @@ const mockSingle = vi.fn().mockResolvedValue({ data: { id: "transcript-abc" }, e
 const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
 const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
 
-const mockSingleHighlight = vi.fn().mockResolvedValue({ data: { id: "highlight-xyz" }, error: null });
+const mockSingleHighlight = vi
+  .fn()
+  .mockResolvedValue({ data: { id: "highlight-xyz" }, error: null });
 const mockSelectHighlight = vi.fn().mockReturnValue({ single: mockSingleHighlight });
 const mockInsertHighlight = vi.fn().mockReturnValue({ select: mockSelectHighlight });
 
@@ -92,9 +94,11 @@ vi.mock("@/lib/groq", () => ({
 }));
 
 // --- Gemini mock ---
-const mockGenerateHighlights = vi.fn().mockResolvedValue([
-  { start: 0, end: 3, text: "Hello this is a test transcript.", reason: "Opening statement" },
-]);
+const mockGenerateHighlights = vi
+  .fn()
+  .mockResolvedValue([
+    { start: 0, end: 3, text: "Hello this is a test transcript.", reason: "Opening statement" },
+  ]);
 
 vi.mock("@/lib/gemini", () => ({
   generateHighlights: mockGenerateHighlights,
@@ -114,7 +118,9 @@ function makeMockStep() {
   };
 }
 
-function makeMockEvent(overrides: Partial<{ projectId: string; r2Key: string; userId: string }> = {}) {
+function makeMockEvent(
+  overrides: Partial<{ projectId: string; r2Key: string; userId: string }> = {}
+) {
   return {
     data: {
       projectId: "project-123",
@@ -231,9 +237,7 @@ Feature("processVideo Inngest function", () => {
       const event = makeMockEvent();
       await processVideoHandler(event, step);
 
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "transcribing" })
-      );
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "transcribing" }));
     });
   });
 
@@ -283,9 +287,7 @@ Feature("processVideo Inngest function", () => {
       const event = makeMockEvent();
       await processVideoHandler(event, step);
 
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "completed" })
-      );
+      expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }));
     });
 
     And("it returns projectId, status, transcriptId, highlightId", async () => {

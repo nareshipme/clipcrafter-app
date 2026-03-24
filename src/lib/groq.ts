@@ -35,9 +35,12 @@ const CHUNK_DURATION_SEC = 20 * 60; // 20 minutes
  */
 async function getAudioDurationSec(audioPath: string): Promise<number> {
   const { stdout } = await execFileAsync("ffprobe", [
-    "-v", "error",
-    "-show_entries", "format=duration",
-    "-of", "default=noprint_wrappers=1:nokey=1",
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "default=noprint_wrappers=1:nokey=1",
     audioPath,
   ]);
   return parseFloat(stdout.trim());
@@ -56,13 +59,20 @@ async function splitAudioIntoChunks(
   const pattern = path.join(dir, `${base}-chunk-%03d.mp3`);
 
   await execFileAsync("ffmpeg", [
-    "-i", audioPath,
-    "-f", "segment",
-    "-segment_time", String(chunkDurationSec),
-    "-ar", "16000",   // 16kHz — sufficient for speech
-    "-ac", "1",       // mono
-    "-b:a", "32k",    // 32kbps — ~4.8MB per 20min chunk
-    "-reset_timestamps", "1",
+    "-i",
+    audioPath,
+    "-f",
+    "segment",
+    "-segment_time",
+    String(chunkDurationSec),
+    "-ar",
+    "16000", // 16kHz — sufficient for speech
+    "-ac",
+    "1", // mono
+    "-b:a",
+    "32k", // 32kbps — ~4.8MB per 20min chunk
+    "-reset_timestamps",
+    "1",
     "-y",
     pattern,
   ]);
@@ -84,10 +94,7 @@ async function splitAudioIntoChunks(
  * Transcribe a single audio file via Groq Whisper.
  * timeOffsetSec is added to all segment timestamps (for stitching chunks).
  */
-async function transcribeChunk(
-  filePath: string,
-  timeOffsetSec: number
-): Promise<TranscriptResult> {
+async function transcribeChunk(filePath: string, timeOffsetSec: number): Promise<TranscriptResult> {
   let transcription;
   try {
     transcription = await getGroqClient().audio.transcriptions.create({
@@ -162,9 +169,7 @@ export async function transcribeAudio(audioPath: string): Promise<TranscriptResu
   const results: TranscriptResult[] = [];
   for (let i = 0; i < chunkFiles.length; i++) {
     const timeOffsetSec = i * CHUNK_DURATION_SEC;
-    console.log(
-      `Transcribing chunk ${i + 1}/${chunkFiles.length} (offset: ${timeOffsetSec}s)`
-    );
+    console.log(`Transcribing chunk ${i + 1}/${chunkFiles.length} (offset: ${timeOffsetSec}s)`);
     const result = await transcribeChunk(chunkFiles[i], timeOffsetSec);
     results.push(result);
 
@@ -173,10 +178,12 @@ export async function transcribeAudio(audioPath: string): Promise<TranscriptResu
   }
 
   // Stitch all chunks together
-  const allSegments = results.flatMap((r) => r.segments).map((seg, idx) => ({
-    ...seg,
-    id: idx, // re-index globally
-  }));
+  const allSegments = results
+    .flatMap((r) => r.segments)
+    .map((seg, idx) => ({
+      ...seg,
+      id: idx, // re-index globally
+    }));
 
   return {
     text: results.map((r) => r.text).join(" "),

@@ -9,10 +9,7 @@ const VALID_STATUSES = ["pending", "approved", "rejected", "exporting", "exporte
 const VALID_CAPTION_STYLES = ["hormozi", "modern", "neon", "minimal"] as const;
 const VALID_ASPECT_RATIOS = ["9:16", "1:1", "16:9"] as const;
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ clipId: string }> }
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ clipId: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -46,7 +43,7 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
 
   if ("status" in body) {
-    if (!VALID_STATUSES.includes(body.status as typeof VALID_STATUSES[number])) {
+    if (!VALID_STATUSES.includes(body.status as (typeof VALID_STATUSES)[number])) {
       return Response.json(
         { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` },
         { status: 400 }
@@ -56,7 +53,9 @@ export async function PATCH(
   }
 
   if ("caption_style" in body) {
-    if (!VALID_CAPTION_STYLES.includes(body.caption_style as typeof VALID_CAPTION_STYLES[number])) {
+    if (
+      !VALID_CAPTION_STYLES.includes(body.caption_style as (typeof VALID_CAPTION_STYLES)[number])
+    ) {
       return Response.json(
         { error: `Invalid caption_style. Must be one of: ${VALID_CAPTION_STYLES.join(", ")}` },
         { status: 400 }
@@ -66,7 +65,7 @@ export async function PATCH(
   }
 
   if ("aspect_ratio" in body) {
-    if (!VALID_ASPECT_RATIOS.includes(body.aspect_ratio as typeof VALID_ASPECT_RATIOS[number])) {
+    if (!VALID_ASPECT_RATIOS.includes(body.aspect_ratio as (typeof VALID_ASPECT_RATIOS)[number])) {
       return Response.json(
         { error: `Invalid aspect_ratio. Must be one of: ${VALID_ASPECT_RATIOS.join(", ")}` },
         { status: 400 }

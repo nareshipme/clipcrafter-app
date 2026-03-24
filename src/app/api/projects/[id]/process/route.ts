@@ -3,10 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { inngest } from "@/lib/inngest";
 import { getSupabaseUserId } from "@/lib/user";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });

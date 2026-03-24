@@ -3,13 +3,7 @@
  * Props are injected at render time by the Inngest export job.
  */
 import React, { useMemo } from "react";
-import {
-  AbsoluteFill,
-  OffthreadVideo,
-  Sequence,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
+import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { createTikTokStyleCaptions, type Caption } from "@remotion/captions";
 
 // ── Caption style presets ─────────────────────────────────────────────────────
@@ -47,8 +41,8 @@ const CAPTION_STYLES: Record<string, React.CSSProperties> = {
 
 const HIGHLIGHT_COLORS: Record<string, string> = {
   hormozi: "#FFD700",
-  modern:  "#7c3aed",
-  neon:    "#ffffff",
+  modern: "#7c3aed",
+  neon: "#ffffff",
   minimal: "#e2c97e",
 };
 
@@ -109,8 +103,7 @@ function CaptionPage({
         }}
       >
         {page.tokens.map((token) => {
-          const isActive =
-            token.fromMs <= absoluteMs && token.toMs > absoluteMs;
+          const isActive = token.fromMs <= absoluteMs && token.toMs > absoluteMs;
           return (
             <span
               key={token.fromMs}
@@ -176,11 +169,7 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
 
           return (
             <Sequence key={i} from={startFrame} durationInFrames={duration}>
-              <CaptionPage
-                page={page}
-                style={style}
-                highlightColor={highlightColor}
-              />
+              <CaptionPage page={page} style={style} highlightColor={highlightColor} />
             </Sequence>
           );
         })}

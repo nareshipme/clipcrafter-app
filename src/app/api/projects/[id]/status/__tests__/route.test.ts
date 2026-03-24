@@ -31,17 +31,13 @@ Feature("GET /api/projects/[id]/status", () => {
       mockFrom.mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: mockProject, error: null }),
+            single: vi.fn().mockResolvedValue({ data: mockProject, error: null }),
           }),
         }),
       });
 
       const { GET } = await import("@/app/api/projects/[id]/status/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/status"
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/status");
 
       const res = await GET(req, { params: mockParams });
       const json = await res.json();
@@ -59,9 +55,7 @@ Feature("GET /api/projects/[id]/status", () => {
       mockAuth.mockResolvedValue({ userId: null });
 
       const { GET } = await import("@/app/api/projects/[id]/status/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/status"
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/status");
 
       const res = await GET(req, { params: mockParams });
       const json = await res.json();
@@ -86,9 +80,7 @@ Feature("GET /api/projects/[id]/status", () => {
       });
 
       const { GET } = await import("@/app/api/projects/[id]/status/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/status"
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/status");
 
       const res = await GET(req, { params: mockParams });
       const json = await res.json();
@@ -113,9 +105,7 @@ Feature("GET /api/projects/[id]/status", () => {
       });
 
       const { GET } = await import("@/app/api/projects/[id]/status/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/status"
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/status");
 
       const res = await GET(req, { params: mockParams });
       const json = await res.json();

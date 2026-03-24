@@ -33,9 +33,7 @@ export function mapClerkUserToDb(clerkUser: ClerkUser): DbUser {
 export async function upsertUserFromClerk(clerkUser: ClerkUser): Promise<void> {
   const userData = mapClerkUserToDb(clerkUser);
 
-  const { error } = await supabaseAdmin
-    .from("users")
-    .upsert(userData, { onConflict: "clerk_id" });
+  const { error } = await supabaseAdmin.from("users").upsert(userData, { onConflict: "clerk_id" });
 
   if (error) throw new Error(`Failed to upsert user: ${error.message}`);
 }

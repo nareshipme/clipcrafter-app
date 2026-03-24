@@ -112,9 +112,7 @@ Feature("POST /api/projects/create", () => {
       mockFrom.mockReturnValue({
         insert: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: null, error: { message: "DB error" } }),
+            single: vi.fn().mockResolvedValue({ data: null, error: { message: "DB error" } }),
           }),
         }),
       });

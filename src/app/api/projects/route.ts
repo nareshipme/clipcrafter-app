@@ -26,8 +26,5 @@ export async function GET(_request: Request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  return Response.json(
-    { projects: data ?? [], total: count ?? 0 },
-    { status: 200 }
-  );
+  return Response.json({ projects: data ?? [], total: count ?? 0 }, { status: 200 });
 }
