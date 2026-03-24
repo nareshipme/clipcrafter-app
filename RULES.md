@@ -29,7 +29,46 @@ These rules apply to all development on this project. Every agent, contributor, 
       Then the file uploads to R2 and a project is created
   ```
 
-## 3. Git Workflow — Branch → PR → Review → Merge
+## 3. Issue Tracking
+
+Every non-trivial piece of work must be tracked as a GitHub Issue.
+
+**When to create an issue:**
+- New feature or enhancement
+- Bug found in production or testing
+- Tech debt to address (refactoring, cleanup)
+- Any TODO that will take more than 30 minutes
+
+**Issue format:**
+```
+Title: [type] Short description
+Body:
+- What: what needs to happen
+- Why: why it matters
+- Acceptance: how we know it's done
+```
+
+**Linking work to issues:**
+- Branch name must reference the issue: `feat/123-clip-delete-button`
+- Commit messages must reference: `feat(clips): add delete button (#123)`
+- PR description must say: `Closes #123` or `Fixes #123`
+- When reviewing PRs, reply to comments with the commit SHA that fixed it:
+  `Fixed in aced7c4 — see [commit link]`
+
+**Closing issues:**
+- Issues are auto-closed when a PR with `Closes #N` merges to main
+- Never close an issue manually without a linked PR/commit
+
+**Labels to use:**
+- `bug` — something broken
+- `feat` — new feature
+- `chore` — tooling, deps, config
+- `tech-debt` — cleanup/refactor
+- `blocked` — waiting on something
+
+---
+
+## 4. Git Workflow — Branch → PR → Review → Merge
 
 - **Never push directly to `main`** — it is protected
 - Always work on a feature branch:
@@ -42,11 +81,15 @@ These rules apply to all development on this project. Every agent, contributor, 
 - PRs must pass CI checks (typecheck + lint) before merge
 - **Pre-push hooks run locally** — TypeScript + ESLint checks before code reaches GitHub
 - Stale reviews are dismissed when new commits are pushed — re-approval required
-- Branch naming: `feat/`, `fix/`, `chore/`, `docs/` prefixes
+- Branch naming: `feat/123-short-desc`, `fix/456-bug-name`, `chore/`, `docs/` — always include issue number
+- **PRs must be ≤ 1000 lines** (excluding lock files and generated files) — enforced by CI
+  - If a PR exceeds 1000 lines, break it into smaller PRs (e.g. separate DB migration, API, UI)
+- **Reply to PR review comments** with the commit SHA that addressed the feedback:
+  `Fixed in abc1234 — <link>`
 
 ---
 
-## 4. Sequential Commits (Conventional Commits)
+## 5. Sequential Commits (Conventional Commits)
 
 - Every commit must be **atomic** — one logical change per commit
 - Use **Conventional Commit** format:
