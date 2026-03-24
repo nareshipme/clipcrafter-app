@@ -15,6 +15,10 @@ Summary: One line about what the post covers.
 
 <!-- Add new posts here, newest first -->
 
+## 2026-03-24 — [Busting Docker Build Cache on Demand with ARG CACHEBUST (and Why You'd Need It)](https://dev.to/nareshipme/busting-docker-build-cache-on-demand-with-arg-cachebust-and-why-youd-need-it-3j9g)
+Tags: docker, devops, nodejs, railway
+Summary: Two techniques for controlling Docker layer caching: merging coupled RUN commands into atomic layers, and using ARG CACHEBUST to force cache invalidation on demand without touching Dockerfile logic.
+
 ## 2026-03-23 — [How to Run Remotion Inside a Next.js App Without Webpack Losing Its Mind](https://dev.to/nareshipme/how-to-run-remotion-inside-a-nextjs-app-without-webpack-losing-its-mind-40mc)
 Tags: nextjs, remotion, typescript, docker
 Summary: 5 concrete fixes for embedding Remotion in a Next.js 15 App Router project — serverExternalPackages, spawning a standalone render script, separate tsconfig for src/remotion, file:// vs HTTPS URLs for Chromium, and Docker setup with CHROME_EXECUTABLE_PATH.

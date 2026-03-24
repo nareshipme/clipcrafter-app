@@ -35,6 +35,14 @@ Modules that could be extracted and open sourced independently.
 - When a module is ready, extract to `packages/<name>` with its own `package.json`
 - Publish to npm under `@toolnexus/<name>` or as standalone
 
+## Updated 2026-03-24
+
+Today's commits were all Docker/Railway deployment fixes: consolidating RUN layers, adding ARG CACHEBUST, lazy R2 init, and forcing Deno install in a single RUN with yt-dlp. These are all Dockerfile/infra patterns — no new open-source candidates. The lazy-init R2 pattern (`src/lib/r2.ts`) was already listed as a candidate but still has the env coupling blocker.
+
+No changes to the candidates table.
+
+---
+
 ## Updated 2026-03-23
 
 Today's commits brought the full Remotion integration: replacing ffmpeg drawtext with Remotion for caption rendering, externalizing from Next.js webpack, spawning a standalone render script, and deploying via Docker on Railway.
