@@ -1,11 +1,12 @@
 FROM node:20-slim
-ARG CACHEBUST=1
 
-# Install system deps: ffmpeg (full build = drawtext/libfreetype support on Debian), yt-dlp, Chromium for Remotion
+# Install system deps + yt-dlp + deno in one layer (deno needed for YouTube n-challenge)
+# cache-bust: 2026-03-24
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
     curl \
+    unzip \
     ca-certificates \
     fonts-liberation \
     libnss3 \
@@ -18,13 +19,12 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libasound2 \
     --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install yt-dlp + deno (deno required for YouTube n-challenge solving)
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp \
     && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
-    && deno --version
+    && deno --version \
+    && yt-dlp --version
 
 WORKDIR /app
 
