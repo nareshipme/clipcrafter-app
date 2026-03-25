@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -362,13 +362,21 @@ export default function VideoKnowledgeGraph({
 }: Props) {
   const initialNodes = useMemo<Node[]>(
     () => buildGraphNodes(graph, selectedSegmentIds, onSegmentClick, onSegmentSelect),
-    [graph, selectedSegmentIds, onSegmentClick, onSegmentSelect]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [graph]
   );
 
   const initialEdges = useMemo<Edge[]>(() => buildGraphEdges(graph), [graph]);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Re-sync nodes and edges when graph data changes (async load)
+  useEffect(() => {
+    setNodes(buildGraphNodes(graph, selectedSegmentIds, onSegmentClick, onSegmentSelect));
+    setEdges(buildGraphEdges(graph));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph]);
 
   const nodesWithSelection = useMemo(
     () => syncNodeSelection(nodes, selectedSegmentIds, onSegmentClick, onSegmentSelect),
