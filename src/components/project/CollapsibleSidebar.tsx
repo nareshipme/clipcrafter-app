@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Artifact, Segment, StatusData } from "./types";
+import { Artifact, Clip, Segment, StatusData } from "./types";
+import { DownloadsPanel } from "./DownloadsPanel";
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -100,10 +101,14 @@ function artifactIcon(key: string): string {
 
 function DownloadsSection({
   artifacts,
+  clips,
+  projectTitle,
   open,
   onToggle,
 }: {
   artifacts: Record<string, Artifact>;
+  clips?: Clip[];
+  projectTitle?: string;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -135,6 +140,9 @@ function DownloadsSection({
           )
         )}
       </div>
+      {clips && clips.length > 0 && (
+        <DownloadsPanel clips={clips} projectTitle={projectTitle ?? ""} />
+      )}
     </CollapsibleSection>
   );
 }
@@ -179,6 +187,8 @@ function HowItRanSection({
 export interface CollapsibleSidebarProps {
   data: StatusData;
   artifacts: Record<string, Artifact> | null;
+  clips?: Clip[];
+  projectTitle?: string;
   transcriptOpen: boolean;
   downloadsOpen: boolean;
   howItRanOpen: boolean;
@@ -190,6 +200,8 @@ export interface CollapsibleSidebarProps {
 export function CollapsibleSidebar({
   data,
   artifacts,
+  clips,
+  projectTitle,
   transcriptOpen,
   downloadsOpen,
   howItRanOpen,
@@ -201,7 +213,13 @@ export function CollapsibleSidebar({
     <>
       <TranscriptSection data={data} open={transcriptOpen} onToggle={onToggleTranscript} />
       {artifacts && Object.keys(artifacts).length > 0 && (
-        <DownloadsSection artifacts={artifacts} open={downloadsOpen} onToggle={onToggleDownloads} />
+        <DownloadsSection
+          artifacts={artifacts}
+          clips={clips}
+          projectTitle={projectTitle}
+          open={downloadsOpen}
+          onToggle={onToggleDownloads}
+        />
       )}
       <HowItRanSection data={data} open={howItRanOpen} onToggle={onToggleHowItRan} />
     </>

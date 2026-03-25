@@ -9,6 +9,7 @@ import {
   makeHandleClipAction,
   makeHandleExportClip,
   makeHandleExportBatch,
+  makeHandleStitchExport,
 } from "./projectHandlers";
 import {
   makeSeekToClip,
@@ -83,6 +84,10 @@ function buildProjectHandlers(opts: ProjectHandlerOpts) {
       () => ({ selectedClipIds: s.selectedClipIds, withCaptions: s.withCaptions }),
       setClips
     ),
+    handleStitchExport: makeHandleStitchExport(id, () => ({
+      selectedClipIds: s.selectedClipIds,
+      withCaptions: s.withCaptions,
+    })),
   };
 }
 
