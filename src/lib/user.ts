@@ -16,8 +16,7 @@ export async function getSupabaseUserId(clerkId: string): Promise<string | null>
 
   // Auto-create user — Clerk webhook may not have fired yet
   const clerkUser = await currentUser();
-  const email =
-    clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${clerkId}@noemail.local`;
+  const email = clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${clerkId}@noemail.local`;
   const full_name = clerkUser
     ? `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim() || undefined
     : undefined;

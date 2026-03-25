@@ -25,23 +25,30 @@ function isYouTubeUrl(str: string): boolean {
 
 /** Get a short-lived presigned GET URL for any R2 key */
 async function getR2PresignedUrl(r2Key: string, expiresIn = 3600): Promise<string> {
-  return getSignedUrl(
-    r2Client,
-    new GetObjectCommand({ Bucket: R2_BUCKET, Key: r2Key }),
-    { expiresIn }
-  );
+  return getSignedUrl(r2Client, new GetObjectCommand({ Bucket: R2_BUCKET, Key: r2Key }), {
+    expiresIn,
+  });
 }
 
 async function downloadYouTubeVideo(url: string, outputPath: string): Promise<void> {
-  await execFileAsync("yt-dlp", [
-    "--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-    "--merge-output-format", "mp4",
-    "--output", outputPath,
-    "--no-playlist",
-    "--extractor-args", "youtube:player_client=web,android",
-    "--socket-timeout", "30",
-    url,
-  ], { timeout: 5 * 60 * 1000 });
+  await execFileAsync(
+    "yt-dlp",
+    [
+      "--format",
+      "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+      "--merge-output-format",
+      "mp4",
+      "--output",
+      outputPath,
+      "--no-playlist",
+      "--extractor-args",
+      "youtube:player_client=web,android",
+      "--socket-timeout",
+      "30",
+      url,
+    ],
+    { timeout: 5 * 60 * 1000 }
+  );
 }
 
 interface Segment {
@@ -57,8 +64,8 @@ function stripSpeakerTag(text: string): string {
 /** Convert transcript segments → Remotion Caption format (plain objects, no external type needed) */
 function toCaptions(segments: Segment[], clipStart: number, clipEnd: number) {
   return segments
-    .filter(s => s.end > clipStart && s.start < clipEnd)
-    .map(s => ({
+    .filter((s) => s.end > clipStart && s.start < clipEnd)
+    .map((s) => ({
       text: stripSpeakerTag(s.text),
       startMs: s.start * 1000,
       endMs: s.end * 1000,
@@ -87,7 +94,7 @@ async function renderWithRemotion(opts: {
 
   try {
     const { stdout, stderr } = await execFileAsync(
-      process.execPath,          // same node binary
+      process.execPath, // same node binary
       [scriptPath, propsPath, opts.outputPath],
       { timeout: 15 * 60 * 1000, maxBuffer: 50 * 1024 * 1024 }
     );
@@ -100,7 +107,14 @@ async function renderWithRemotion(opts: {
 
 // ── main handler ──────────────────────────────────────────────────────────────
 
-type ClipRow = { id: string; start_sec: number; end_sec: number; caption_style: string; aspect_ratio: string; project_id: string };
+type ClipRow = {
+  id: string;
+  start_sec: number;
+  end_sec: number;
+  caption_style: string;
+  aspect_ratio: string;
+  project_id: string;
+};
 
 export async function clipExportHandler(
   event: { data: ClipExportEventData },
@@ -111,7 +125,7 @@ export async function clipExportHandler(
 
   try {
     // ── Step 1: fetch DB data, return everything needed for subsequent steps ──
-    const stepOneResult = await step.run("fetch-clip-and-project", async () => {
+    const stepOneResult = (await step.run("fetch-clip-and-project", async () => {
       const { data: clipData, error: clipError } = await supabaseAdmin
         .from("clips")
         .select("id, start_sec, end_sec, caption_style, aspect_ratio, project_id")
@@ -135,10 +149,11 @@ export async function clipExportHandler(
         .single();
 
       const allSegments: Segment[] = Array.isArray(transcriptData?.segments)
-        ? (transcriptData.segments as Segment[]) : [];
+        ? (transcriptData.segments as Segment[])
+        : [];
 
       const clipSegments = allSegments.filter(
-        s => s.end > clipData.start_sec && s.start < clipData.end_sec
+        (s) => s.end > clipData.start_sec && s.start < clipData.end_sec
       );
 
       return {
@@ -147,14 +162,14 @@ export async function clipExportHandler(
         r2Key: projectData.r2_key as string,
         isYouTube: isYouTubeUrl(projectData.r2_key),
       };
-    }) as { clip: ClipRow; segments: Segment[]; r2Key: string; isYouTube: boolean };
+    })) as { clip: ClipRow; segments: Segment[]; r2Key: string; isYouTube: boolean };
 
     const { clip, segments, r2Key, isYouTube } = stepOneResult;
 
     // ── Step 2: resolve an HTTPS URL Remotion's Chromium can fetch ──
     // R2 video  → presigned URL (no download needed at all)
     // YouTube   → download locally, re-upload to R2 temp, presign
-    const videoUrl = await step.run("resolve-video-url", async () => {
+    const videoUrl = (await step.run("resolve-video-url", async () => {
       if (!isYouTube) {
         // Direct R2 presigned URL — Chromium fetches it over HTTPS
         return getR2PresignedUrl(r2Key, 3 * 3600);
@@ -166,14 +181,19 @@ export async function clipExportHandler(
       try {
         await downloadYouTubeVideo(r2Key, ytSourcePath);
         const buf = await fs.readFile(ytSourcePath);
-        await r2Client.send(new PutObjectCommand({
-          Bucket: R2_BUCKET, Key: ytTempR2Key, Body: buf, ContentType: "video/mp4",
-        }));
+        await r2Client.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: ytTempR2Key,
+            Body: buf,
+            ContentType: "video/mp4",
+          })
+        );
         return getR2PresignedUrl(ytTempR2Key, 3 * 3600);
       } finally {
         await fs.unlink(ytSourcePath).catch(() => undefined);
       }
-    }) as string;
+    })) as string;
 
     // ── Step 3: render with Remotion (videoUrl is always HTTPS) ──
     await step.run("trim-and-render", async () => {
@@ -189,14 +209,16 @@ export async function clipExportHandler(
     });
 
     // ── Step 4: upload rendered clip to R2 ──
-    const exportUrl = await step.run("upload-to-r2", async () => {
+    const exportUrl = (await step.run("upload-to-r2", async () => {
       const exportKey = `exports/${projectId}/${clipId}.mp4`;
-      await r2Client.send(new PutObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: exportKey,
-        Body: await fs.readFile(outputPath),
-        ContentType: "video/mp4",
-      }));
+      await r2Client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: exportKey,
+          Body: await fs.readFile(outputPath),
+          ContentType: "video/mp4",
+        })
+      );
 
       const presignedUrl = await getSignedUrl(
         r2Client,
@@ -204,12 +226,13 @@ export async function clipExportHandler(
         { expiresIn: 7 * 24 * 3600 }
       );
 
-      await supabaseAdmin.from("clips")
+      await supabaseAdmin
+        .from("clips")
         .update({ status: "exported", export_url: presignedUrl })
         .eq("id", clipId);
 
       return presignedUrl;
-    }) as string;
+    })) as string;
 
     // ── Step 5: cleanup ──
     await step.run("cleanup", async () => {
@@ -217,7 +240,6 @@ export async function clipExportHandler(
     });
 
     return { clipId, projectId, status: "exported", exportUrl };
-
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     await supabaseAdmin.from("clips").update({ status: "pending" }).eq("id", clipId);

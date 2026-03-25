@@ -15,7 +15,8 @@ interface SegmentInput {
   topic: string;
 }
 
-const ENRICH_PROMPT = (clips: SegmentInput[]) => `
+const ENRICH_PROMPT = (clips: SegmentInput[]) =>
+  `
 You are a social media content strategist.
 
 For each video clip, provide engagement metadata:
@@ -29,13 +30,23 @@ Return ONLY a JSON array (one object per clip, same order). No markdown.
 [{ "score": int, "score_reason": str, "reason": str, "hashtags": [str], "clip_title": str }]
 
 Clips:
-${clips.map((c, i) => `${i + 1}. [${Math.floor(c.start / 60).toString().padStart(2, "0")}:${Math.floor(c.start % 60).toString().padStart(2, "0")} → ${Math.floor(c.end / 60).toString().padStart(2, "0")}:${Math.floor(c.end % 60).toString().padStart(2, "0")}] Topic: ${c.topic}\n   ${c.text}`).join("\n\n")}
+${clips
+  .map(
+    (c, i) =>
+      `${i + 1}. [${Math.floor(c.start / 60)
+        .toString()
+        .padStart(2, "0")}:${Math.floor(c.start % 60)
+        .toString()
+        .padStart(2, "0")} → ${Math.floor(c.end / 60)
+        .toString()
+        .padStart(2, "0")}:${Math.floor(c.end % 60)
+        .toString()
+        .padStart(2, "0")}] Topic: ${c.topic}\n   ${c.text}`
+  )
+  .join("\n\n")}
 `.trim();
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -50,8 +61,10 @@ export async function POST(
     .eq("id", projectId)
     .single();
 
-  if (projectError || !project) return Response.json({ error: "Project not found" }, { status: 404 });
-  if (project.user_id !== supabaseUserId) return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (projectError || !project)
+    return Response.json({ error: "Project not found" }, { status: 404 });
+  if (project.user_id !== supabaseUserId)
+    return Response.json({ error: "Forbidden" }, { status: 403 });
 
   let body: { segments?: SegmentInput[] };
   try {
@@ -66,12 +79,24 @@ export async function POST(
   }
 
   // Enrich with LLM
-  let enriched: Array<{ score: number; score_reason: string; reason: string; hashtags: string[]; clip_title: string }>;
+  let enriched: Array<{
+    score: number;
+    score_reason: string;
+    reason: string;
+    hashtags: string[];
+    clip_title: string;
+  }>;
   try {
     const raw = await callLLM(ENRICH_PROMPT(segments));
     enriched = parseLLMJson(raw);
   } catch {
-    enriched = segments.map(() => ({ score: 50, score_reason: "", reason: "", hashtags: [], clip_title: "" }));
+    enriched = segments.map(() => ({
+      score: 50,
+      score_reason: "",
+      reason: "",
+      hashtags: [],
+      clip_title: "",
+    }));
   }
 
   const insertPayload = segments.map((seg, i) => ({

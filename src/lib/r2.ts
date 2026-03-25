@@ -5,7 +5,9 @@ function createR2Client() {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
   if (!accessKeyId || !secretAccessKey) {
-    throw new Error(`R2 credentials missing: R2_ACCESS_KEY_ID=${!!accessKeyId} R2_SECRET_ACCESS_KEY=${!!secretAccessKey}`);
+    throw new Error(
+      `R2 credentials missing: R2_ACCESS_KEY_ID=${!!accessKeyId} R2_SECRET_ACCESS_KEY=${!!secretAccessKey}`
+    );
   }
   return new S3Client({
     region: "auto",

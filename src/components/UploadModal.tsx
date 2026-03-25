@@ -10,13 +10,7 @@ interface UploadModalProps {
 
 type Tab = "upload" | "youtube";
 
-type UploadStep =
-  | "idle"
-  | "creating"
-  | "uploading"
-  | "processing"
-  | "done"
-  | "error";
+type UploadStep = "idle" | "creating" | "uploading" | "processing" | "done" | "error";
 
 const STEP_LABELS: Record<UploadStep, string> = {
   idle: "",
@@ -31,7 +25,7 @@ function isYouTubeUrl(url: string): boolean {
   return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+/.test(url.trim());
 }
 
-function isYouTubeLive(url: string): boolean {
+function _isYouTubeLive(url: string): boolean {
   return /youtube\.com\/live\//i.test(url);
 }
 
@@ -177,7 +171,12 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
             className="text-gray-400 hover:text-white p-1 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" stroke="currentColor" fill="none">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -189,9 +188,7 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
             aria-selected={activeTab === "upload"}
             onClick={() => setActiveTab("upload")}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px] ${
-              activeTab === "upload"
-                ? "bg-violet-600 text-white"
-                : "text-gray-400 hover:text-white"
+              activeTab === "upload" ? "bg-violet-600 text-white" : "text-gray-400 hover:text-white"
             }`}
           >
             Upload File
@@ -215,7 +212,10 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
           <div className="flex flex-col gap-4">
             <div
               onClick={() => !isBusy && fileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
@@ -233,16 +233,36 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
               />
               {file ? (
                 <div className="flex flex-col items-center gap-1">
-                  <svg className="w-8 h-8 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                  <svg
+                    className="w-8 h-8 text-violet-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
+                    />
                   </svg>
                   <p className="text-white font-medium text-sm">{file.name}</p>
                   <p className="text-gray-400 text-xs">{formatBytes(file.size)}</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
-                  <svg className="w-10 h-10 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  <svg
+                    className="w-10 h-10 text-gray-600"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
                   </svg>
                   <p className="text-gray-400 text-sm">Drag &amp; drop or click to select</p>
                   <p className="text-gray-600 text-xs">video/*</p>
@@ -251,7 +271,9 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
             </div>
 
             {step !== "idle" && (
-              <p className={`text-sm text-center ${step === "error" ? "text-red-400" : "text-violet-400"}`}>
+              <p
+                className={`text-sm text-center ${step === "error" ? "text-red-400" : "text-violet-400"}`}
+              >
                 {step === "error" ? errorMsg : STEP_LABELS[step]}
               </p>
             )}
@@ -278,22 +300,21 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
                 id="youtube-url"
                 type="url"
                 value={youtubeUrl}
-                onChange={(e) => { setYoutubeUrl(e.target.value); setYoutubeError(""); }}
+                onChange={(e) => {
+                  setYoutubeUrl(e.target.value);
+                  setYoutubeError("");
+                }}
                 placeholder="https://www.youtube.com/watch?v=..."
                 disabled={isBusy}
                 className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-violet-500 disabled:opacity-50 min-h-[44px]"
               />
-              {youtubeError && (
-                <p className="text-red-400 text-xs">{youtubeError}</p>
-              )}
+              {youtubeError && <p className="text-red-400 text-xs">{youtubeError}</p>}
             </div>
 
             {step !== "idle" && step !== "error" && (
               <p className="text-sm text-center text-violet-400">{STEP_LABELS[step]}</p>
             )}
-            {step === "error" && (
-              <p className="text-sm text-center text-red-400">{errorMsg}</p>
-            )}
+            {step === "error" && <p className="text-sm text-center text-red-400">{errorMsg}</p>}
 
             <button
               type="button"

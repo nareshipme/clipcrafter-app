@@ -41,3 +41,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+www.youtube.com_cookies.txt
+
+# Local dev notes (not for remote)
+docs/devto-posts.md
+docs/opensource-candidates.md

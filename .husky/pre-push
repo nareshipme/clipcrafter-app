@@ -1,0 +1,25 @@
+#!/bin/sh
+echo "⏳ Running pre-push checks..."
+
+echo "🔍 Type checking..."
+npx tsc --noEmit
+if [ $? -ne 0 ]; then
+  echo "❌ TypeScript errors. Fix before pushing."
+  exit 1
+fi
+
+echo "🎨 Checking formatting..."
+npx prettier --check "src/**/*.{ts,tsx}"
+if [ $? -ne 0 ]; then
+  echo "❌ Formatting issues. Run: npx prettier --write 'src/**/*.{ts,tsx}'"
+  exit 1
+fi
+
+echo "🔍 Linting..."
+npx eslint src --ext .ts,.tsx
+if [ $? -ne 0 ]; then
+  echo "❌ Lint errors. Fix before pushing."
+  exit 1
+fi
+
+echo "✅ All checks passed!"

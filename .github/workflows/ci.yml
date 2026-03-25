@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
@@ -30,5 +31,66 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Lint
-        run: npx eslint src --ext .ts,.tsx --max-warnings 0
+      - name: Format check (Prettier)
+        run: npx prettier --check "src/**/*.{ts,tsx}"
+      - name: Lint (zero errors allowed)
+        run: npx eslint src --ext .ts,.tsx
+
+  pr-size:
+    name: pr-size
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for large-pr label
+        id: check-label
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "Labels: $LABELS"
+          if echo "$LABELS" | grep -q '"large-pr"'; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️  large-pr label detected — skipping PR size check."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check PR size (max 1000 lines)
+        if: steps.check-label.outputs.skip == 'false'
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+
+          ADDED=$(git diff --numstat $BASE $HEAD \
+            -- ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml' ':!*.lock' \
+               ':!.next/**' ':!build/**' ':!dist/**' ':!out/**' \
+               ':!**/*.min.js' ':!**/*.min.css' ':!src/**/__snapshots__/**' \
+            | awk '{sum += $1} END {print sum+0}')
+
+          REMOVED=$(git diff --numstat $BASE $HEAD \
+            -- ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml' ':!*.lock' \
+               ':!.next/**' ':!build/**' ':!dist/**' ':!out/**' \
+               ':!**/*.min.js' ':!**/*.min.css' ':!src/**/__snapshots__/**' \
+            | awk '{sum += $2} END {print sum+0}')
+
+          TOTAL=$((ADDED + REMOVED))
+          echo "PR size: +$ADDED -$REMOVED = $TOTAL lines changed (lock/generated files excluded)"
+
+          if [ "$TOTAL" -gt 1000 ]; then
+            echo ""
+            echo "❌ PR is too large ($TOTAL lines). Max allowed: 1000 lines."
+            echo "   Options:"
+            echo "   1. Break into smaller PRs"
+            echo "   2. Add the 'large-pr' label with a justification comment if this is unavoidable"
+            exit 1
+          fi
+
+          echo "✅ PR size OK ($TOTAL / 1000 lines)"
+
+      - name: PR size skipped
+        if: steps.check-label.outputs.skip == 'true'
+        run: |
+          echo "✅ PR size check skipped (large-pr label present)"
+          echo "   Make sure there's a comment on this PR justifying the large size."

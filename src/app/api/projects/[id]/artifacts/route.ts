@@ -13,10 +13,7 @@ import { getSupabaseUserId } from "@/lib/user";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -32,7 +29,8 @@ export async function GET(
     .single();
 
   if (error || !project) return Response.json({ error: "Project not found" }, { status: 404 });
-  if (project.user_id !== supabaseUserId) return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (project.user_id !== supabaseUserId)
+    return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const EXPIRES = 3600; // 1 hour
   const artifacts: Record<string, { url: string; label: string; available: boolean }> = {};
@@ -46,7 +44,9 @@ export async function GET(
         { expiresIn: EXPIRES }
       );
       artifacts.video = { url, label: "Video (MP4)", available: true };
-    } catch { artifacts.video = { url: "", label: "Video (MP4)", available: false }; }
+    } catch {
+      artifacts.video = { url: "", label: "Video (MP4)", available: false };
+    }
   } else if (project.r2_key?.startsWith("http")) {
     // YouTube — original URL
     artifacts.video = { url: project.r2_key, label: "YouTube Source", available: true };
@@ -61,7 +61,9 @@ export async function GET(
         { expiresIn: EXPIRES }
       );
       artifacts.audio = { url, label: "Audio (MP3)", available: true };
-    } catch { artifacts.audio = { url: "", label: "Audio (MP3)", available: false }; }
+    } catch {
+      artifacts.audio = { url: "", label: "Audio (MP3)", available: false };
+    }
   } else {
     artifacts.audio = { url: "", label: "Audio (MP3)", available: false };
   }

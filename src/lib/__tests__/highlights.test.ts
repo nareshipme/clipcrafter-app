@@ -107,9 +107,19 @@ Feature("generateHighlights — updated Highlight interface", () => {
 
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify([
-            { start: 0, end: 5, text: "meh", reason: "low energy", score: 0, score_reason: "no hook", hashtags: ["#test"], clip_title: "Low Energy Moment" },
-          ]),
+          text: () =>
+            JSON.stringify([
+              {
+                start: 0,
+                end: 5,
+                text: "meh",
+                reason: "low energy",
+                score: 0,
+                score_reason: "no hook",
+                hashtags: ["#test"],
+                clip_title: "Low Energy Moment",
+              },
+            ]),
         },
       });
 

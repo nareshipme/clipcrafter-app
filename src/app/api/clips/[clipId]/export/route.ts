@@ -6,10 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getSupabaseUserId } from "@/lib/user";
 import { inngest } from "@/lib/inngest";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ clipId: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ clipId: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,7 +17,7 @@ export async function POST(
 
   let withCaptions = true;
   try {
-    const body = await request.json() as { withCaptions?: unknown };
+    const body = (await request.json()) as { withCaptions?: unknown };
     if (typeof body.withCaptions === "boolean") withCaptions = body.withCaptions;
   } catch {
     // no body or non-JSON — use default
@@ -28,7 +25,9 @@ export async function POST(
 
   const { data: clip, error } = await supabaseAdmin
     .from("clips")
-    .select("id, project_id, status, start_sec, end_sec, caption_style, aspect_ratio, projects(user_id)")
+    .select(
+      "id, project_id, status, start_sec, end_sec, caption_style, aspect_ratio, projects(user_id)"
+    )
     .eq("id", clipId)
     .single();
 
@@ -41,10 +40,7 @@ export async function POST(
   }
 
   // Set status to exporting
-  await supabaseAdmin
-    .from("clips")
-    .update({ status: "exporting" })
-    .eq("id", clipId);
+  await supabaseAdmin.from("clips").update({ status: "exporting" }).eq("id", clipId);
 
   // Dispatch Inngest job
   await inngest.send({

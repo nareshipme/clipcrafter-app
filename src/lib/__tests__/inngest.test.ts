@@ -19,9 +19,7 @@ Feature("Inngest Client", () => {
 Feature("Process Video Inngest Function", () => {
   Scenario("processVideo function is defined", () => {
     it("Given the process-video module, Then it exports a processVideo function", async () => {
-      const { processVideo } = await import(
-        "@/inngest/functions/process-video"
-      );
+      const { processVideo } = await import("@/inngest/functions/process-video");
       expect(processVideo).toBeDefined();
     });
   });

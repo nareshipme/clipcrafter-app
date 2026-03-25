@@ -15,7 +15,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { title, type, youtubeUrl } = body as { title?: string; type?: string; youtubeUrl?: string };
+  const { title, type, youtubeUrl } = body as {
+    title?: string;
+    type?: string;
+    youtubeUrl?: string;
+  };
 
   if (!title || typeof title !== "string" || title.trim() === "") {
     return Response.json({ error: "title is required" }, { status: 400 });

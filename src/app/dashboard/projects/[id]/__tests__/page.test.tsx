@@ -100,7 +100,9 @@ describe("ProjectDetailPage", () => {
     // The fact that the stepper is shown means the polling effect was active
     expect(screen.getByTestId("processing-stepper")).toBeInTheDocument();
 
-    vi.spyOn(global, "setInterval").mockImplementation(originalSetInterval as unknown as typeof setInterval);
+    vi.spyOn(global, "setInterval").mockImplementation(
+      originalSetInterval as unknown as typeof setInterval
+    );
   });
 
   it("shows error message and retry button for failed project", async () => {
@@ -151,6 +153,8 @@ describe("ProjectDetailPage", () => {
     // RTL's waitFor may use setInterval(50ms), but the component should NOT set up a 3s interval
     expect(intervalDelays).not.toContain(3000);
 
-    vi.spyOn(global, "setInterval").mockImplementation(originalSetInterval as unknown as typeof setInterval);
+    vi.spyOn(global, "setInterval").mockImplementation(
+      originalSetInterval as unknown as typeof setInterval
+    );
   });
 });

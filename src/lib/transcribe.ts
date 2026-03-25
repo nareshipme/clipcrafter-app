@@ -53,8 +53,9 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
       },
     }),
   });
-  if (!initRes.ok) throw new Error(`Sarvam job init failed (${initRes.status}): ${await initRes.text()}`);
-  const { job_id } = await initRes.json() as { job_id: string };
+  if (!initRes.ok)
+    throw new Error(`Sarvam job init failed (${initRes.status}): ${await initRes.text()}`);
+  const { job_id } = (await initRes.json()) as { job_id: string };
   console.log(`Sarvam: job created → ${job_id}`);
 
   // Step 2 — Get presigned upload URL
@@ -63,9 +64,12 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
     headers: jsonHeaders,
     body: JSON.stringify({ job_id, files: ["audio.mp3"] }),
   });
-  if (!uploadLinksRes.ok) throw new Error(`Sarvam upload-files failed (${uploadLinksRes.status}): ${await uploadLinksRes.text()}`);
+  if (!uploadLinksRes.ok)
+    throw new Error(
+      `Sarvam upload-files failed (${uploadLinksRes.status}): ${await uploadLinksRes.text()}`
+    );
 
-  const uploadData = await uploadLinksRes.json() as {
+  const uploadData = (await uploadLinksRes.json()) as {
     upload_urls: Record<string, { file_url: string }>;
   };
   const uploadUrl = uploadData.upload_urls?.["audio.mp3"]?.file_url;
@@ -81,7 +85,8 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
       "x-ms-blob-type": "BlockBlob", // required for Azure Blob Storage
     },
   });
-  if (!putRes.ok) throw new Error(`Sarvam file upload failed (${putRes.status}): ${await putRes.text()}`);
+  if (!putRes.ok)
+    throw new Error(`Sarvam file upload failed (${putRes.status}): ${await putRes.text()}`);
   console.log(`Sarvam: uploaded ${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
   // Step 4 — Start the job
@@ -89,7 +94,8 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
     method: "POST",
     headers: { "api-subscription-key": SARVAM_API_KEY },
   });
-  if (!startRes.ok) throw new Error(`Sarvam job start failed (${startRes.status}): ${await startRes.text()}`);
+  if (!startRes.ok)
+    throw new Error(`Sarvam job start failed (${startRes.status}): ${await startRes.text()}`);
   console.log("Sarvam: job started, polling...");
 
   // Step 5 — Poll for completion (correct endpoint: /status)
@@ -103,7 +109,7 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
     });
     if (!statusRes.ok) continue;
 
-    const status = await statusRes.json() as {
+    const status = (await statusRes.json()) as {
       job_state: string;
       error_message?: string;
       job_details?: Array<{
@@ -133,9 +139,12 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
     headers: jsonHeaders,
     body: JSON.stringify({ job_id, files: [outputFileName] }),
   });
-  if (!downloadLinksRes.ok) throw new Error(`Sarvam download-files failed (${downloadLinksRes.status}): ${await downloadLinksRes.text()}`);
+  if (!downloadLinksRes.ok)
+    throw new Error(
+      `Sarvam download-files failed (${downloadLinksRes.status}): ${await downloadLinksRes.text()}`
+    );
 
-  const downloadData = await downloadLinksRes.json() as {
+  const downloadData = (await downloadLinksRes.json()) as {
     download_urls: Record<string, { file_url: string }>;
   };
   const downloadUrl = downloadData.download_urls?.[outputFileName]?.file_url;
@@ -143,7 +152,8 @@ async function transcribeWithSarvam(audioPath: string): Promise<TranscriptResult
 
   // Step 7 — Fetch transcript JSON
   const transcriptRes = await fetch(downloadUrl);
-  if (!transcriptRes.ok) throw new Error(`Sarvam transcript fetch failed (${transcriptRes.status})`);
+  if (!transcriptRes.ok)
+    throw new Error(`Sarvam transcript fetch failed (${transcriptRes.status})`);
   const output = await transcriptRes.json();
 
   console.log(`Sarvam: transcript received, parsing...`);
@@ -176,7 +186,7 @@ function parseSarvamOutput(output: {
       text: `[Speaker ${entry.speaker_id}] ${entry.transcript}`,
     }));
     return {
-      text: diarized.map(e => `[Speaker ${e.speaker_id}] ${e.transcript}`).join(" "),
+      text: diarized.map((e) => `[Speaker ${e.speaker_id}] ${e.transcript}`).join(" "),
       segments,
     };
   }
@@ -211,7 +221,7 @@ function groupWordsIntoSegments(
         id: segments.length,
         start: current[0].start,
         end: current[current.length - 1].end,
-        text: current.map(w => w.word).join(" "),
+        text: current.map((w) => w.word).join(" "),
       });
       current = [];
     }
@@ -222,12 +232,12 @@ function groupWordsIntoSegments(
       id: segments.length,
       start: current[0].start,
       end: current[current.length - 1].end,
-      text: current.map(w => w.word).join(" "),
+      text: current.map((w) => w.word).join(" "),
     });
   }
   return segments;
 }
 
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

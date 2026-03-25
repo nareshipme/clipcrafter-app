@@ -34,9 +34,7 @@ Feature("POST /api/projects/[id]/upload", () => {
       mockFrom.mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: mockProject, error: null }),
+            single: vi.fn().mockResolvedValue({ data: mockProject, error: null }),
           }),
         }),
       });
@@ -46,9 +44,7 @@ Feature("POST /api/projects/[id]/upload", () => {
         publicUrl: "https://r2.example.com/uploads/user_123/video.mp4",
       });
 
-      const { POST } = await import(
-        "@/app/api/projects/[id]/upload/route"
-      );
+      const { POST } = await import("@/app/api/projects/[id]/upload/route");
       const req = new Request("http://localhost/api/projects/proj_1/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,9 +64,7 @@ Feature("POST /api/projects/[id]/upload", () => {
     it("Given no userId, Then returns 401", async () => {
       mockAuth.mockResolvedValue({ userId: null });
 
-      const { POST } = await import(
-        "@/app/api/projects/[id]/upload/route"
-      );
+      const { POST } = await import("@/app/api/projects/[id]/upload/route");
       const req = new Request("http://localhost/api/projects/proj_1/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,9 +93,7 @@ Feature("POST /api/projects/[id]/upload", () => {
         }),
       });
 
-      const { POST } = await import(
-        "@/app/api/projects/[id]/upload/route"
-      );
+      const { POST } = await import("@/app/api/projects/[id]/upload/route");
       const req = new Request("http://localhost/api/projects/proj_1/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,9 +122,7 @@ Feature("POST /api/projects/[id]/upload", () => {
         }),
       });
 
-      const { POST } = await import(
-        "@/app/api/projects/[id]/upload/route"
-      );
+      const { POST } = await import("@/app/api/projects/[id]/upload/route");
       const req = new Request("http://localhost/api/projects/proj_1/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

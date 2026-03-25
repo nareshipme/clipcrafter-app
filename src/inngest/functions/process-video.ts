@@ -21,7 +21,13 @@ async function updateProjectStatus(
   await supabaseAdmin.from("projects").update(fields).eq("id", projectId);
 }
 
-type LogEntry = { step: string; provider?: string; detail?: string; status: "ok" | "error" | "fallback"; ts: string };
+type LogEntry = {
+  step: string;
+  provider?: string;
+  detail?: string;
+  status: "ok" | "error" | "fallback";
+  ts: string;
+};
 
 function makeLogger(projectId: string) {
   const entries: LogEntry[] = [];
@@ -37,7 +43,9 @@ function makeLogger(projectId: string) {
       if (!entries.length) return;
       await supabaseAdmin.from("projects").update({ processing_log: entries }).eq("id", projectId);
     },
-    getEntries() { return entries; },
+    getEntries() {
+      return entries;
+    },
   };
 }
 
@@ -60,10 +68,12 @@ async function getYtCookiesPath(): Promise<string | null> {
   // Only fetch once per container lifetime
   if (fsSync.existsSync(cookiesPath)) return cookiesPath;
   try {
-    const res = await r2Client.send(new GetObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: "config/yt-cookies.txt",
-    }));
+    const res = await r2Client.send(
+      new GetObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: "config/yt-cookies.txt",
+      })
+    );
     const chunks: Buffer[] = [];
     for await (const chunk of res.Body as AsyncIterable<Uint8Array>) {
       chunks.push(Buffer.from(chunk));
@@ -79,14 +89,21 @@ async function getYtCookiesPath(): Promise<string | null> {
 async function downloadYouTubeVideo(url: string, outputPath: string): Promise<void> {
   const cookiesPath = await getYtCookiesPath();
   const args = [
-    "--format", "bestvideo[ext=mp4][protocol^=http]+bestaudio[ext=m4a][protocol^=http]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-    "--merge-output-format", "mp4",
-    "--output", outputPath,
+    "--format",
+    "bestvideo[ext=mp4][protocol^=http]+bestaudio[ext=m4a][protocol^=http]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "--merge-output-format",
+    "mp4",
+    "--output",
+    outputPath,
     "--no-playlist",
-    "--extractor-args", "youtube:player_client=web",
-    "--socket-timeout", "60",
-    "--retries", "5",
-    "--retry-sleep", "exp=1:30",
+    "--extractor-args",
+    "youtube:player_client=web",
+    "--socket-timeout",
+    "60",
+    "--retries",
+    "5",
+    "--retry-sleep",
+    "exp=1:30",
   ];
   if (cookiesPath) args.push("--cookies", cookiesPath);
   args.push(url);
@@ -113,6 +130,7 @@ export interface ProcessVideoEventData {
 
 export async function processVideoHandler(
   event: { data: ProcessVideoEventData },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   step: any
 ): Promise<Record<string, unknown>> {
   const { projectId } = event.data;
@@ -151,20 +169,30 @@ export async function processVideoHandler(
       transcriptId = existingTranscript?.id;
       logger.log({ step: "download", provider: "skipped (reused)", status: "ok" });
       logger.log({ step: "extract-audio", provider: "skipped (reused)", status: "ok" });
-      logger.log({ step: "transcribe", provider: "skipped (reused)", detail: `${existingTranscript?.segments?.length ?? 0} segments`, status: "ok" });
+      logger.log({
+        step: "transcribe",
+        provider: "skipped (reused)",
+        detail: `${existingTranscript?.segments?.length ?? 0} segments`,
+        status: "ok",
+      });
 
       // Jump straight to highlights
       await step.run("generate-highlights", async () => {
         await updateProjectStatus(projectId, { status: "generating_highlights" });
         const existingSegs = Array.isArray(existingTranscript?.segments)
-          ? existingTranscript.segments as Array<{ start: number; end: number; text: string }>
+          ? (existingTranscript.segments as Array<{ start: number; end: number; text: string }>)
           : [];
         const highlights = await generateHighlights(
           formatSegmentsForHighlights(existingSegs),
           existingSegs
         );
         const hlProvider = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
-        logger.log({ step: "generate-highlights", provider: hlProvider, detail: `${highlights.length} highlights`, status: "ok" });
+        logger.log({
+          step: "generate-highlights",
+          provider: hlProvider,
+          detail: `${highlights.length} highlights`,
+          status: "ok",
+        });
 
         const { data } = await supabaseAdmin
           .from("highlights")
@@ -177,10 +205,19 @@ export async function processVideoHandler(
       await step.run("finalize", async () => {
         logger.log({ step: "finalize", provider: "system", status: "ok" });
         await logger.flush();
-        await updateProjectStatus(projectId, { status: "completed", completed_at: new Date().toISOString() });
+        await updateProjectStatus(projectId, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        });
       });
 
-      return { projectId, status: "completed", transcriptId, highlightId, processingLog: logger.getEntries() };
+      return {
+        projectId,
+        status: "completed",
+        transcriptId,
+        highlightId,
+        processingLog: logger.getEntries(),
+      };
     }
 
     // Step 1 — download video (R2 or YouTube)
@@ -194,15 +231,22 @@ export async function processVideoHandler(
         const { PutObjectCommand } = await import("@aws-sdk/client-s3");
         const videoBuffer = await fs.readFile(videoPath);
         const videoR2Key = `videos/${projectId}/video.mp4`;
-        await r2Client.send(new PutObjectCommand({
-          Bucket: R2_BUCKET,
-          Key: videoR2Key,
-          Body: videoBuffer,
-          ContentType: "video/mp4",
-        }));
+        await r2Client.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: videoR2Key,
+            Body: videoBuffer,
+            ContentType: "video/mp4",
+          })
+        );
         // Update r2_key to the actual R2 key so artifacts API returns a presigned URL
         await updateProjectStatus(projectId, { r2_key: videoR2Key });
-        logger.log({ step: "download", provider: "yt-dlp → R2", detail: `${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB uploaded`, status: "ok" });
+        logger.log({
+          step: "download",
+          provider: "yt-dlp → R2",
+          detail: `${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB uploaded`,
+          status: "ok",
+        });
       } else {
         logger.log({ step: "download", provider: "Cloudflare R2", detail: r2Key, status: "ok" });
         const buffer = await downloadR2Object(r2Key);
@@ -220,14 +264,21 @@ export async function processVideoHandler(
       const { PutObjectCommand } = await import("@aws-sdk/client-s3");
       const audioBuffer = await fs.readFile(audioPath);
       const audioKey = `audio/${projectId}/audio.mp3`;
-      await r2Client.send(new PutObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: audioKey,
-        Body: audioBuffer,
-        ContentType: "audio/mpeg",
-      }));
+      await r2Client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: audioKey,
+          Body: audioBuffer,
+          ContentType: "audio/mpeg",
+        })
+      );
       await updateProjectStatus(projectId, { audio_key: audioKey });
-      logger.log({ step: "extract-audio", provider: "ffmpeg → R2", detail: `${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB uploaded`, status: "ok" });
+      logger.log({
+        step: "extract-audio",
+        provider: "ffmpeg → R2",
+        detail: `${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB uploaded`,
+        status: "ok",
+      });
     });
 
     // Step 3 — transcribe
@@ -235,7 +286,12 @@ export async function processVideoHandler(
       await updateProjectStatus(projectId, { status: "transcribing" });
       logger.log({ step: "transcribe", provider: "Sarvam Saaras v3", status: "ok" });
       const result = await transcribeAudio(audioPath);
-      logger.log({ step: "transcribe", provider: result.provider ?? "Sarvam Saaras v3", detail: `${result.segments.length} segments`, status: "ok" });
+      logger.log({
+        step: "transcribe",
+        provider: result.provider ?? "Sarvam Saaras v3",
+        detail: `${result.segments.length} segments`,
+        status: "ok",
+      });
 
       const { data } = await supabaseAdmin
         .from("transcripts")
@@ -250,14 +306,19 @@ export async function processVideoHandler(
     // Step 4 — generate-highlights
     await step.run("generate-highlights", async () => {
       await updateProjectStatus(projectId, { status: "generating_highlights" });
-      const transcriptResult = transcript as { text: string; segments: Array<{ start: number; end: number; text: string }> };
+      const transcriptResult = transcript as {
+        text: string;
+        segments: Array<{ start: number; end: number; text: string }>;
+      };
       const segs = transcriptResult.segments ?? [];
-      const highlights = await generateHighlights(
-        formatSegmentsForHighlights(segs),
-        segs
-      );
+      const highlights = await generateHighlights(formatSegmentsForHighlights(segs), segs);
       const hlProvider = process.env.HIGHLIGHTS_PROVIDER ?? "gemini";
-      logger.log({ step: "generate-highlights", provider: hlProvider, detail: `${highlights.length} highlights`, status: "ok" });
+      logger.log({
+        step: "generate-highlights",
+        provider: hlProvider,
+        detail: `${highlights.length} highlights`,
+        status: "ok",
+      });
 
       const { data } = await supabaseAdmin
         .from("highlights")
@@ -280,7 +341,13 @@ export async function processVideoHandler(
       });
     });
 
-    return { projectId, status: "completed", transcriptId, highlightId, processingLog: logger.getEntries() };
+    return {
+      projectId,
+      status: "completed",
+      transcriptId,
+      highlightId,
+      processingLog: logger.getEntries(),
+    };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     await supabaseAdmin

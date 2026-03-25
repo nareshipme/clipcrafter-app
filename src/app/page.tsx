@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const features = [
   {
     title: "Trim",
@@ -28,28 +30,25 @@ export default function Home() {
           AI-powered video tools for creators
         </p>
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-xs sm:max-w-none sm:w-auto">
-          <a
+          <Link
             href="/sign-up"
             className="rounded-lg bg-violet-600 px-8 py-3 font-semibold hover:bg-violet-500 transition-colors text-center"
           >
             Get Started
-          </a>
-          <a
+          </Link>
+          <Link
             href="/sign-in"
             className="rounded-lg border border-gray-700 px-8 py-3 font-semibold hover:border-gray-500 transition-colors text-center"
           >
             Sign In
-          </a>
+          </Link>
         </div>
       </section>
 
       <section className="py-12 px-6">
         <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="rounded-xl bg-gray-900 border border-gray-800 p-6"
-            >
+            <div key={feature.title} className="rounded-xl bg-gray-900 border border-gray-800 p-6">
               <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
               <p className="text-sm text-gray-400">{feature.description}</p>
             </div>

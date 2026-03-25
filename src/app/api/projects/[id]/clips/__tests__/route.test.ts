@@ -66,7 +66,7 @@ Feature("POST /api/projects/[id]/clips", () => {
       // Chain: projects.select.eq.single → project ownership check
       // highlights.select.eq.order.limit.single → get highlights
       // clips.insert.select → inserted clips
-      let callCount = 0;
+      const callCount = 0;
       mockFrom.mockImplementation((table: string) => {
         if (table === "projects") {
           return {

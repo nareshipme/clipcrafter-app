@@ -48,19 +48,14 @@ Feature("POST /api/projects/[id]/process", () => {
       mockSend.mockResolvedValue({});
 
       const { POST } = await import("@/app/api/projects/[id]/process/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/process",
-        { method: "POST" }
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/process", { method: "POST" });
 
       const res = await POST(req, { params: mockParams });
       const json = await res.json();
 
       expect(res.status).toBe(200);
       expect(json.status).toBe("processing");
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({ name: "video/process" })
-      );
+      expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({ name: "video/process" }));
     });
   });
 
@@ -69,10 +64,7 @@ Feature("POST /api/projects/[id]/process", () => {
       mockAuth.mockResolvedValue({ userId: null });
 
       const { POST } = await import("@/app/api/projects/[id]/process/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/process",
-        { method: "POST" }
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/process", { method: "POST" });
 
       const res = await POST(req, { params: mockParams });
       const json = await res.json();
@@ -88,18 +80,13 @@ Feature("POST /api/projects/[id]/process", () => {
       mockFrom.mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: null, error: { message: "Not found" } }),
+            single: vi.fn().mockResolvedValue({ data: null, error: { message: "Not found" } }),
           }),
         }),
       });
 
       const { POST } = await import("@/app/api/projects/[id]/process/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/process",
-        { method: "POST" }
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/process", { method: "POST" });
 
       const res = await POST(req, { params: mockParams });
       const json = await res.json();
@@ -124,10 +111,7 @@ Feature("POST /api/projects/[id]/process", () => {
       });
 
       const { POST } = await import("@/app/api/projects/[id]/process/route");
-      const req = new Request(
-        "http://localhost/api/projects/proj_1/process",
-        { method: "POST" }
-      );
+      const req = new Request("http://localhost/api/projects/proj_1/process", { method: "POST" });
 
       const res = await POST(req, { params: mockParams });
       const json = await res.json();

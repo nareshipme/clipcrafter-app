@@ -1,0 +1,4 @@
+[environments.production]
+projectId = "eb72a45f-a20a-4ffa-a944-5c80b95b6331"
+serviceId = "db550d8b-6515-41fa-9a5b-f7d5ac5dd5fe"
+environmentId = "003d2d19-c6c1-42de-bb11-8239a9d5c7cf"

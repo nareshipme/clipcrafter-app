@@ -11,9 +11,12 @@ import { getSupabaseUserId } from "@/lib/user";
 async function resolveProjectOwnership(
   projectId: string,
   clerkUserId: string
-): Promise<{ supabaseUserId: string; project: { id: string; user_id: string } } | { error: Response }> {
+): Promise<
+  { supabaseUserId: string; project: { id: string; user_id: string } } | { error: Response }
+> {
   const supabaseUserId = await getSupabaseUserId(clerkUserId);
-  if (!supabaseUserId) return { error: Response.json({ error: "Failed to resolve user" }, { status: 500 }) };
+  if (!supabaseUserId)
+    return { error: Response.json({ error: "Failed to resolve user" }, { status: 500 }) };
 
   const { data: project, error } = await supabaseAdmin
     .from("projects")
@@ -21,16 +24,15 @@ async function resolveProjectOwnership(
     .eq("id", projectId)
     .single();
 
-  if (error || !project) return { error: Response.json({ error: "Project not found" }, { status: 404 }) };
-  if (project.user_id !== supabaseUserId) return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  if (error || !project)
+    return { error: Response.json({ error: "Project not found" }, { status: 404 }) };
+  if (project.user_id !== supabaseUserId)
+    return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
 
   return { supabaseUserId, project };
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -47,7 +49,10 @@ export async function POST(
     .single();
 
   if (!transcriptRow) {
-    return Response.json({ error: "No transcript found — process the project first" }, { status: 422 });
+    return Response.json(
+      { error: "No transcript found — process the project first" },
+      { status: 422 }
+    );
   }
 
   // Parse generation options
@@ -59,13 +64,12 @@ export async function POST(
     count = body.count ? Number(body.count) : undefined;
     prompt = body.prompt?.trim() || undefined;
     targetDuration = body.targetDuration ? Number(body.targetDuration) : undefined;
-  } catch { /* no body is fine */ }
+  } catch {
+    /* no body is fine */
+  }
 
   // Mark clips as generating immediately (for UI)
-  await supabaseAdmin
-    .from("projects")
-    .update({ clips_status: "generating" })
-    .eq("id", id);
+  await supabaseAdmin.from("projects").update({ clips_status: "generating" }).eq("id", id);
 
   // Fire Inngest job — visible in dashboard, handles long Gemini calls
   await inngest.send({
@@ -76,10 +80,7 @@ export async function POST(
   return Response.json({ status: "generating" }, { status: 202 });
 }
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -100,10 +101,13 @@ export async function GET(
       .single(),
   ]);
 
-  return Response.json({
-    clips: clipsRes.data ?? [],
-    clips_status: projectRes.data?.clips_status ?? "idle",
-    topic_map: projectRes.data?.topic_map ?? null,
-    video_graph: projectRes.data?.video_graph ?? null,
-  }, { status: 200 });
+  return Response.json(
+    {
+      clips: clipsRes.data ?? [],
+      clips_status: projectRes.data?.clips_status ?? "idle",
+      topic_map: projectRes.data?.topic_map ?? null,
+      video_graph: projectRes.data?.video_graph ?? null,
+    },
+    { status: 200 }
+  );
 }
