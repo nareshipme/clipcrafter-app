@@ -135,7 +135,10 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
       // If this YouTube URL already has a project, go straight to it
       if (deduplicated) {
         setStep("done");
-        router.push(`/dashboard/projects/${id}`);
+        setErrorMsg(
+          "⚠️ You've already processed this video. Redirecting to your existing project..."
+        );
+        setTimeout(() => router.push(`/dashboard/projects/${id}`), 1500);
         return;
       }
 
