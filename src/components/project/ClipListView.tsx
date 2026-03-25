@@ -281,29 +281,15 @@ function ExportBar({
 }) {
   return (
     <div className="sticky top-0 z-10 bg-gray-950 py-2 flex flex-wrap items-center gap-2 border-b border-gray-800 -mx-4 px-4">
-      <label className="flex items-center gap-1.5 cursor-pointer select-none min-h-[36px]">
-        <input
-          type="checkbox"
-          className="w-4 h-4 accent-violet-500"
-          checked={selectedClipIds.size === sortedClips.length}
-          ref={(el) => {
-            if (el)
-              el.indeterminate =
-                selectedClipIds.size > 0 && selectedClipIds.size < sortedClips.length;
-          }}
-          onChange={(e) => {
-            if (e.target.checked) onSelectAll(sortedClips.map((c) => c.id));
-            else onDeselectAll();
-          }}
-        />
-        <span className="text-xs text-gray-400">Select All</span>
-      </label>
       <button
         type="button"
-        onClick={() => onSelectAll(sortedClips.map((c) => c.id))}
+        onClick={() => {
+          if (selectedClipIds.size === sortedClips.length) onDeselectAll();
+          else onSelectAll(sortedClips.map((c) => c.id));
+        }}
         className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors min-h-[30px]"
       >
-        Select All
+        {selectedClipIds.size === sortedClips.length ? "Deselect All" : "Select All"}
       </button>
       <button
         type="button"

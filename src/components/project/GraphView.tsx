@@ -302,6 +302,12 @@ export function GraphView({
               return next;
             })
           }
+          onSelectAll={(ids) => onSetSelectedClipIds(new Set(ids))}
+          onKeepAll={() => {
+            sortedClips.forEach((clip) => {
+              if (clip.status !== "approved") onClipAction(clip.id, { status: "approved" });
+            });
+          }}
         />
       </div>
       <TopicLabels

@@ -22,6 +22,8 @@ interface Props {
   onSegmentClick: (segment: GraphSegment) => void;
   selectedSegmentIds: Set<string>;
   onSegmentSelect: (id: string, selected: boolean) => void;
+  onSelectAll: (ids: string[]) => void;
+  onKeepAll: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -87,12 +89,19 @@ function StartNode(_: NodeProps<Node<StartNodeData>>) {
 
 interface TopicNodeData extends Record<string, unknown> {
   node: GraphNode;
+  topicSegments: GraphSegment[];
+  selectedSegmentIds: Set<string>;
+  onSegmentSelect: (id: string, selected: boolean) => void;
 }
 
 function TopicNode({ data }: NodeProps<Node<TopicNodeData>>) {
-  const { node } = data;
+  const { node, topicSegments, selectedSegmentIds, onSegmentSelect } = data;
   const colors = speakerColor(node.speakerId);
   const size = node.importance >= 80 ? "text-sm" : node.importance >= 50 ? "text-xs" : "text-xs";
+
+  const selectedCount = topicSegments.filter((s) => selectedSegmentIds.has(s.id)).length;
+  const isAllSelected = topicSegments.length > 0 && selectedCount === topicSegments.length;
+  const isSomeSelected = selectedCount > 0 && selectedCount < topicSegments.length;
 
   return (
     <div
@@ -104,6 +113,21 @@ function TopicNode({ data }: NodeProps<Node<TopicNodeData>>) {
       }}
     >
       <div className="flex items-center gap-2">
+        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isAllSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = isSomeSelected;
+            }}
+            onChange={(e) => {
+              topicSegments.forEach((seg) => {
+                onSegmentSelect(seg.id, e.target.checked);
+              });
+            }}
+            className="w-3.5 h-3.5 accent-violet-500 cursor-pointer"
+          />
+        </div>
         <span
           className={`shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-full text-white ${colors.badge}`}
         >
@@ -200,6 +224,12 @@ function buildGraphNodes(
     targetPosition: Position.Left,
   };
 
+  const segsByTopic: Record<string, GraphSegment[]> = {};
+  for (const seg of graph.segments) {
+    if (!segsByTopic[seg.topicId]) segsByTopic[seg.topicId] = [];
+    segsByTopic[seg.topicId].push(seg);
+  }
+
   const topicNodes: Node[] = graph.nodes.map((node, i) => {
     const x = FIRST_TOPIC_X + i * TOPIC_X_STEP;
     topicPositions[node.id] = { x, y: TOPIC_Y };
@@ -207,17 +237,16 @@ function buildGraphNodes(
       id: node.id,
       type: "topic",
       position: { x, y: TOPIC_Y },
-      data: { node } as TopicNodeData,
+      data: {
+        node,
+        topicSegments: segsByTopic[node.id] ?? [],
+        selectedSegmentIds,
+        onSegmentSelect,
+      } as TopicNodeData,
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
     };
   });
-
-  const segsByTopic: Record<string, GraphSegment[]> = {};
-  for (const seg of graph.segments) {
-    if (!segsByTopic[seg.topicId]) segsByTopic[seg.topicId] = [];
-    segsByTopic[seg.topicId].push(seg);
-  }
 
   const segmentNodes: Node[] = graph.segments.map((segment) => {
     const parentPos = topicPositions[segment.topicId] ?? { x: 0, y: TOPIC_Y };
@@ -251,8 +280,9 @@ function buildGraphEdges(graph: VideoGraph): Edge[] {
             id: "start-to-first",
             source: "__start__",
             target: graph.nodes[0].id,
-            markerEnd: { ...arrowMarker, color: "#6b7280" },
-            style: { stroke: "#6b7280", strokeWidth: 1.5 },
+            markerEnd: { ...arrowMarker, color: "#4b5563" },
+            style: { stroke: "#4b5563", strokeDasharray: "5 5", strokeWidth: 1.5 },
+            animated: false,
           },
         ]
       : [];
@@ -262,15 +292,16 @@ function buildGraphEdges(graph: VideoGraph): Edge[] {
     source: node.id,
     target: graph.nodes[i + 1].id,
     markerEnd: { ...arrowMarker, color: "#4b5563" },
-    style: { stroke: "#4b5563", strokeWidth: 1.5 },
+    style: { stroke: "#4b5563", strokeDasharray: "5 5", strokeWidth: 1.5 },
+    animated: false,
   }));
 
   const structuralEdges: Edge[] = graph.segments.map((seg) => ({
     id: `topic-${seg.topicId}-${seg.id}`,
     source: seg.topicId,
     target: seg.id,
-    markerEnd: { ...arrowMarker, color: "#374151" },
-    style: { stroke: "#374151", strokeWidth: 1, strokeDasharray: "4 3" },
+    markerEnd: { ...arrowMarker, color: "#6366f1" },
+    style: { stroke: "#6366f1", strokeDasharray: "5 5", strokeWidth: 1 },
     animated: false,
   }));
 
@@ -280,11 +311,11 @@ function buildGraphEdges(graph: VideoGraph): Edge[] {
       id: `edge-${i}-${edge.source}-${edge.target}`,
       source: edge.source,
       target: edge.target,
-      animated: true,
+      animated: false,
       markerEnd: { ...arrowMarker, color },
       label: formatRelType(edge.relationshipType),
       labelStyle: { fill: color, fontSize: 10 },
-      style: { stroke: color, strokeWidth: 1.5 },
+      style: { stroke: color, strokeDasharray: "5 5", strokeWidth: 1.5 },
     };
   });
 
@@ -298,14 +329,24 @@ function syncNodeSelection(
   onSegmentSelect: (id: string, selected: boolean) => void
 ): Node[] {
   return nodes.map((node) => {
-    if (node.type !== "segment") return node;
-    const seg = (node.data as SegmentNodeData).segment;
-    const selected = selectedSegmentIds.has(seg.id);
-    if ((node.data as SegmentNodeData).selected === selected) return node;
-    return {
-      ...node,
-      data: { ...(node.data as SegmentNodeData), selected, onSegmentClick, onSegmentSelect },
-    };
+    if (node.type === "segment") {
+      const seg = (node.data as SegmentNodeData).segment;
+      const selected = selectedSegmentIds.has(seg.id);
+      if ((node.data as SegmentNodeData).selected === selected) return node;
+      return {
+        ...node,
+        data: { ...(node.data as SegmentNodeData), selected, onSegmentClick, onSegmentSelect },
+      };
+    }
+    if (node.type === "topic") {
+      const topicData = node.data as TopicNodeData;
+      if (topicData.selectedSegmentIds === selectedSegmentIds) return node;
+      return {
+        ...node,
+        data: { ...topicData, selectedSegmentIds, onSegmentSelect },
+      };
+    }
+    return node;
   });
 }
 
@@ -316,6 +357,8 @@ export default function VideoKnowledgeGraph({
   onSegmentClick,
   selectedSegmentIds,
   onSegmentSelect,
+  onSelectAll,
+  onKeepAll,
 }: Props) {
   const initialNodes = useMemo<Node[]>(
     () => buildGraphNodes(graph, selectedSegmentIds, onSegmentClick, onSegmentSelect),
@@ -332,23 +375,45 @@ export default function VideoKnowledgeGraph({
     [nodes, selectedSegmentIds, onSegmentClick, onSegmentSelect]
   );
 
+  const allSegmentIds = graph.segments.map((s) => s.id);
+  const allSelected =
+    allSegmentIds.length > 0 && allSegmentIds.every((id) => selectedSegmentIds.has(id));
+
   return (
-    <div className="relative w-full h-full bg-gray-950">
-      <ReactFlow
-        nodes={nodesWithSelection}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background variant={BackgroundVariant.Dots} color="#374151" gap={20} size={1} />
-        <Controls className="!bg-gray-900 !border-gray-700 !text-gray-300" />
-      </ReactFlow>
+    <div className="relative w-full h-full bg-gray-950 flex flex-col">
+      <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
+        <button
+          type="button"
+          onClick={() => onSelectAll(allSelected ? [] : allSegmentIds)}
+          className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors"
+        >
+          {allSelected ? "Deselect All" : "Select All"}
+        </button>
+        <button
+          type="button"
+          onClick={onKeepAll}
+          className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-green-400 transition-colors"
+        >
+          Keep All
+        </button>
+      </div>
+      <div className="flex-1 min-h-0">
+        <ReactFlow
+          nodes={nodesWithSelection}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.2}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} color="#374151" gap={20} size={1} />
+          <Controls className="!bg-gray-900 !border-gray-700 !text-gray-300" />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
