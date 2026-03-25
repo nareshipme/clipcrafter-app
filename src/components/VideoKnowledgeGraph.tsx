@@ -405,7 +405,7 @@ export default function VideoKnowledgeGraph({
           Keep All
         </button>
       </div>
-      <div className="flex-1 min-h-0">
+      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <ReactFlow
           nodes={nodesWithSelection}
           edges={edges}
