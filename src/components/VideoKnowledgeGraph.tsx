@@ -388,7 +388,15 @@ export default function VideoKnowledgeGraph({
     allSegmentIds.length > 0 && allSegmentIds.every((id) => selectedSegmentIds.has(id));
 
   return (
-    <div className="relative w-full h-full bg-gray-950 flex flex-col">
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: "#030712",
+      }}
+    >
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
         <button
           type="button"
@@ -405,7 +413,7 @@ export default function VideoKnowledgeGraph({
           Keep All
         </button>
       </div>
-      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+      <div style={{ width: "100%", height: "100%", position: "relative", flex: 1, minHeight: 0 }}>
         <ReactFlow
           nodes={nodesWithSelection}
           edges={edges}
