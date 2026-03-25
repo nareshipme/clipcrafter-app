@@ -376,7 +376,9 @@ export function ProjectDetailContent({ id }: { id: string }) {
       const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Project deleted", { id: toastId });
-        window.location.href = "/dashboard";
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 1000);
       } else {
         toast.error("Failed to delete project", { id: toastId });
       }
