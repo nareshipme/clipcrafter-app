@@ -24,9 +24,7 @@ export default function UsageMeter() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="h-12 bg-gray-800 rounded-lg animate-pulse" />
-    );
+    return <div className="h-12 bg-gray-800 rounded-lg animate-pulse" />;
   }
 
   if (!usage) return null;
@@ -36,11 +34,7 @@ export default function UsageMeter() {
   const isWarning = percent >= 80 && percent < 100;
   const isFull = percent >= 100;
 
-  const barColor = isFull
-    ? "bg-red-500"
-    : isWarning
-    ? "bg-yellow-500"
-    : "bg-green-500";
+  const barColor = isFull ? "bg-red-500" : isWarning ? "bg-yellow-500" : "bg-green-500";
 
   const limitLabel = isUnlimited ? "unlimited" : `${usage.limit} min`;
   const usedLabel = `${Math.round(usage.audioMinutesUsed)} min used of ${limitLabel}`;

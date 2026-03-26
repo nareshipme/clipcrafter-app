@@ -54,9 +54,7 @@ export async function POST(request: Request) {
 
       // Determine plan from plan_id
       const plan =
-        subEntity.plan_id === (process.env.RAZORPAY_PLAN_ID_TEAM ?? "plan_team")
-          ? "team"
-          : "pro";
+        subEntity.plan_id === (process.env.RAZORPAY_PLAN_ID_TEAM ?? "plan_team") ? "team" : "pro";
 
       await supabaseAdmin.from("subscriptions").upsert(
         {

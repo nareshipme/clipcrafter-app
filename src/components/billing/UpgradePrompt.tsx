@@ -53,14 +53,20 @@ export default function UpgradePrompt({ open, onClose }: UpgradePromptProps) {
     setLoading(planId);
     try {
       const gatewayRes = await fetch("/api/billing/detect-gateway");
-      const { gateway } = await gatewayRes.json() as { gateway: string };
+      const { gateway } = (await gatewayRes.json()) as { gateway: string };
 
       const res = await fetch("/api/billing/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan: planId, gateway }),
       });
-      const data = await res.json() as { url?: string; subscriptionId?: string; keyId?: string; amount?: number; currency?: string };
+      const data = (await res.json()) as {
+        url?: string;
+        subscriptionId?: string;
+        keyId?: string;
+        amount?: number;
+        currency?: string;
+      };
 
       if (data.url) {
         window.location.href = data.url;

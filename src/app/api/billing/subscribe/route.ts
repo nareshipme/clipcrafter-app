@@ -37,8 +37,7 @@ export async function POST(request: Request) {
 
   const clerkUser = await currentUser();
   const email = clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${userId}@noemail.local`;
-  const name =
-    `${clerkUser?.firstName ?? ""} ${clerkUser?.lastName ?? ""}`.trim() || email;
+  const name = `${clerkUser?.firstName ?? ""} ${clerkUser?.lastName ?? ""}`.trim() || email;
 
   const subscription = await getSubscription(userId);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

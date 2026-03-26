@@ -40,9 +40,6 @@ export async function createSubscription(
 export function verifyWebhookSignature(body: string, sig: string): boolean {
   // TODO: set RAZORPAY_WEBHOOK_SECRET in environment variables
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET!;
-  const expectedSig = crypto
-    .createHmac("sha256", secret)
-    .update(body)
-    .digest("hex");
+  const expectedSig = crypto.createHmac("sha256", secret).update(body).digest("hex");
   return expectedSig === sig;
 }

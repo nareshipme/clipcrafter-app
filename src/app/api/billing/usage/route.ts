@@ -1,9 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import {
-  getSubscription,
-  getUsageForCurrentPeriod,
-  getPlanLimitMinutes,
-} from "@/lib/billing";
+import { getSubscription, getUsageForCurrentPeriod, getPlanLimitMinutes } from "@/lib/billing";
 
 export async function GET() {
   const { userId } = await auth();
@@ -17,11 +13,9 @@ export async function GET() {
   ]);
 
   const planLimit = getPlanLimitMinutes(subscription.plan);
-  const effectiveLimit =
-    planLimit === Infinity ? Infinity : planLimit + (usage.bonus_minutes ?? 0);
+  const effectiveLimit = planLimit === Infinity ? Infinity : planLimit + (usage.bonus_minutes ?? 0);
   const audioMinutesUsed = usage.audio_minutes_used ?? 0;
-  const percentUsed =
-    effectiveLimit === Infinity ? 0 : (audioMinutesUsed / effectiveLimit) * 100;
+  const percentUsed = effectiveLimit === Infinity ? 0 : (audioMinutesUsed / effectiveLimit) * 100;
 
   return Response.json({
     plan: subscription.plan,

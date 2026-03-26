@@ -64,7 +64,7 @@ export default function PricingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan: planId, gateway }),
       });
-      const data = await res.json() as {
+      const data = (await res.json()) as {
         url?: string;
         subscriptionId?: string;
         keyId?: string;
@@ -114,9 +114,7 @@ export default function PricingPage() {
       <main className="px-4 sm:px-6 py-12 max-w-5xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">Simple, transparent pricing</h1>
-          <p className="text-gray-400 text-lg">
-            Start free, upgrade when you need more.
-          </p>
+          <p className="text-gray-400 text-lg">Start free, upgrade when you need more.</p>
           {gateway === "razorpay" && (
             <p className="text-gray-500 text-sm mt-2">
               Prices shown in USD · Charged in INR at current exchange rates

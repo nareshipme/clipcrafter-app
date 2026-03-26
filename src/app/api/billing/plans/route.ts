@@ -7,11 +7,7 @@ export async function GET() {
       name: "Free",
       price: PLAN_PRICES.free,
       audioMinutesPerMonth: PLAN_LIMITS.free,
-      features: [
-        "30 minutes of audio per month",
-        "AI highlight extraction",
-        "Export clips",
-      ],
+      features: ["30 minutes of audio per month", "AI highlight extraction", "Export clips"],
     },
     {
       id: "pro",

@@ -17,7 +17,10 @@ export async function POST(request: Request) {
     event = constructWebhookEvent(payload, sig);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: `Webhook signature verification failed: ${message}` }, { status: 400 });
+    return Response.json(
+      { error: `Webhook signature verification failed: ${message}` },
+      { status: 400 }
+    );
   }
 
   switch (event.type) {
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
       const subscriptionId =
         typeof session.subscription === "string"
           ? session.subscription
-          : session.subscription?.id ?? null;
+          : (session.subscription?.id ?? null);
 
       // Retrieve the subscription to get the plan
       let plan = "pro";
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
           stripe_customer_id:
             typeof session.customer === "string"
               ? session.customer
-              : session.customer?.id ?? null,
+              : (session.customer?.id ?? null),
           stripe_subscription_id: subscriptionId,
           status: "active",
           updated_at: new Date().toISOString(),
@@ -57,9 +60,7 @@ export async function POST(request: Request) {
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice;
       const customerId =
-        typeof invoice.customer === "string"
-          ? invoice.customer
-          : invoice.customer?.id ?? null;
+        typeof invoice.customer === "string" ? invoice.customer : (invoice.customer?.id ?? null);
       if (!customerId) break;
 
       const periodStart = invoice.period_start
@@ -84,9 +85,7 @@ export async function POST(request: Request) {
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const customerId =
-        typeof invoice.customer === "string"
-          ? invoice.customer
-          : invoice.customer?.id ?? null;
+        typeof invoice.customer === "string" ? invoice.customer : (invoice.customer?.id ?? null);
       if (!customerId) break;
 
       await supabaseAdmin
@@ -99,9 +98,7 @@ export async function POST(request: Request) {
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
       const customerId =
-        typeof sub.customer === "string"
-          ? sub.customer
-          : sub.customer?.id ?? null;
+        typeof sub.customer === "string" ? sub.customer : (sub.customer?.id ?? null);
       if (!customerId) break;
 
       await supabaseAdmin

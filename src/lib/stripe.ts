@@ -8,10 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export default stripe;
 
-export async function createCustomer(
-  email: string,
-  userId: string
-): Promise<Stripe.Customer> {
+export async function createCustomer(email: string, userId: string): Promise<Stripe.Customer> {
   return stripe.customers.create({
     email,
     metadata: { userId },
@@ -43,10 +40,7 @@ export async function createPortalSession(
   });
 }
 
-export function constructWebhookEvent(
-  payload: string | Buffer,
-  sig: string
-): Stripe.Event {
+export function constructWebhookEvent(payload: string | Buffer, sig: string): Stripe.Event {
   // TODO: set STRIPE_WEBHOOK_SECRET in environment variables
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
   return stripe.webhooks.constructEvent(payload, sig, webhookSecret);
