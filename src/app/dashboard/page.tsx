@@ -5,6 +5,7 @@ import { UserButton } from "@clerk/nextjs";
 import { toast } from "sonner";
 import ProjectCard, { type Project } from "@/components/ProjectCard";
 import UploadModal from "@/components/UploadModal";
+import UsageMeter from "@/components/billing/UsageMeter";
 
 function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -126,6 +127,9 @@ export default function DashboardPage() {
       </header>
 
       <main className="px-4 sm:px-6 py-8 max-w-6xl mx-auto">
+        <div className="mb-6">
+          <UsageMeter />
+        </div>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map((n) => (

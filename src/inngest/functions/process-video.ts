@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { transcribeAudio } from "@/lib/transcribe";
 import { generateHighlights, formatSegmentsForHighlights } from "@/lib/highlights";
+import { isUsageAllowed, incrementUsage } from "@/lib/billing";
 
 const execFileAsync = promisify(execFile);
 
@@ -191,6 +192,21 @@ export async function processVideoHandler(
 ): Promise<Record<string, unknown>> {
   const { projectId } = event.data;
 
+  // Check usage limit before doing any work
+  const usageCheck = await step.run("check-usage-limit", async () => {
+    return isUsageAllowed(event.data.userId);
+  });
+  if (!usageCheck.allowed) {
+    await supabaseAdmin
+      .from("projects")
+      .update({
+        status: "failed",
+        error_message: "Usage limit exceeded. Please upgrade your plan.",
+      })
+      .eq("id", event.data.projectId);
+    return { status: "blocked", reason: "usage_limit_exceeded" };
+  }
+
   // Use projectId for stable paths across step re-invocations (Inngest runs each step in a fresh context)
   const videoPath = path.join(os.tmpdir(), `clipcrafter-video-${projectId}.mp4`);
   const audioPath = path.join(os.tmpdir(), `clipcrafter-audio-${projectId}.mp3`);
@@ -359,6 +375,17 @@ export async function processVideoHandler(
         status: "completed",
         completed_at: new Date().toISOString(),
       });
+    });
+
+    // Step 6 — track usage
+    await step.run("track-usage", async () => {
+      const { data: project } = await supabaseAdmin
+        .from("projects")
+        .select("duration_seconds")
+        .eq("id", projectId)
+        .single();
+      const durationMinutes = ((project as { duration_seconds?: number } | null)?.duration_seconds ?? 0) / 60;
+      await incrementUsage(event.data.userId, durationMinutes);
     });
 
     return {

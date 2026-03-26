@@ -62,9 +62,17 @@ async function submitUploadFile(file: File, ctx: SubmitContext): Promise<void> {
       body: JSON.stringify({ filename: file.name }),
     });
     if (!uploadRes.ok) throw new Error("Failed to get upload URL");
-    const { uploadUrl } = await uploadRes.json();
+    const { uploadUrl, key } = await uploadRes.json();
 
     await fetch(uploadUrl, { method: "PUT", body: file });
+
+    // Save the R2 key back to the project row so process route can find it
+    const saveKeyRes = await fetch(`/api/projects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ r2_key: key }),
+    });
+    if (!saveKeyRes.ok) throw new Error("Failed to save upload key");
 
     ctx.setStep("processing");
     const processRes = await fetch(`/api/projects/${id}/process`, { method: "POST" });

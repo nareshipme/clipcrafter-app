@@ -5,6 +5,9 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api(.*)"]);
 const isPublicApiRoute = createRouteMatcher([
   "/api/inngest(.*)", // Inngest dev server must reach this
   "/api/webhooks(.*)", // Clerk webhooks are self-authenticating
+  "/api/billing/webhook/(.*)", // Stripe and Razorpay webhooks — signature-verified, no Clerk auth
+  "/api/billing/plans(.*)", // Public plan definitions
+  "/api/billing/detect-gateway(.*)", // Public gateway detection
 ]);
 const isAuthRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 

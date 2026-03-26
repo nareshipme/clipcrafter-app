@@ -24,9 +24,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
-  const { title } = body as { title?: string };
+  const { title, r2_key } = body as { title?: string; r2_key?: string };
 
-  if (typeof title !== "string" || title.trim().length === 0) {
+  if (title === undefined && r2_key === undefined) {
+    return Response.json({ error: "Nothing to update" }, { status: 400 });
+  }
+  if (title !== undefined && (typeof title !== "string" || title.trim().length === 0)) {
     return Response.json({ error: "title must be a non-empty string" }, { status: 400 });
   }
 
@@ -40,9 +43,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (project.user_id !== supabaseUserId)
     return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  const updates: Record<string, string> = {};
+  if (title !== undefined) updates.title = title.trim();
+  if (r2_key !== undefined) updates.r2_key = r2_key;
+
   const { data: updated, error: updateError } = await supabaseAdmin
     .from("projects")
-    .update({ title: title.trim() })
+    .update(updates)
     .eq("id", id)
     .select("id, title")
     .single();
