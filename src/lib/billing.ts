@@ -5,10 +5,10 @@ export const STARTER_PRICE_INR = 0; // TBD
 export const PRO_PRICE_INR = 0; // TBD
 
 export const PLAN_LIMITS: Record<string, number> = {
-  free: 1800,       // 30 min/month
+  free: 1800, // 30 min/month
   trial: Infinity,
-  starter: 18000,   // 5 hrs/month
-  pro: 72000,       // 20 hrs/month
+  starter: 18000, // 5 hrs/month
+  pro: 72000, // 20 hrs/month
 };
 
 const ALPHA_DAILY_LIMIT_SECONDS = 7200; // 2 hrs/day

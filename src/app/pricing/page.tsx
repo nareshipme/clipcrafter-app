@@ -27,7 +27,12 @@ export default function PricingPage() {
       name: "Starter",
       price: "₹TBD",
       description: "For creators publishing regularly.",
-      features: ["5 hrs/month processing", "Unlimited projects", "Priority processing", "Email support"],
+      features: [
+        "5 hrs/month processing",
+        "Unlimited projects",
+        "Priority processing",
+        "Email support",
+      ],
       cta: "Coming Soon",
       ctaDisabled: true,
       highlighted: false,
@@ -53,9 +58,7 @@ export default function PricingPage() {
       <div className="max-w-5xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">Simple, transparent pricing</h1>
-          <p className="text-gray-400 text-lg">
-            All prices in INR. Powered by Razorpay.
-          </p>
+          <p className="text-gray-400 text-lg">All prices in INR. Powered by Razorpay.</p>
           <p className="text-gray-500 text-sm mt-2">
             Note: Razorpay integration for paid plans coming soon. Starter &amp; Pro prices TBD.
           </p>

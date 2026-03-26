@@ -69,7 +69,15 @@ export default function UsageMeter() {
 
   if (!data) return null;
 
-  const { isAlpha, alphaExpiresInDays, dailyUsageSeconds, dailyLimitSeconds, plan, isTrialActive, trialEndsAt } = data;
+  const {
+    isAlpha,
+    alphaExpiresInDays,
+    dailyUsageSeconds,
+    dailyLimitSeconds,
+    plan,
+    isTrialActive,
+    trialEndsAt,
+  } = data;
 
   if (isAlpha) {
     const pct = dailyLimitSeconds ? (dailyUsageSeconds / 7200) * 100 : 0;
@@ -90,7 +98,10 @@ export default function UsageMeter() {
   }
 
   if (plan === "trial" && isTrialActive && trialEndsAt) {
-    const trialDaysLeft = Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    const trialDaysLeft = Math.max(
+      0,
+      Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    );
     const pct = dailyLimitSeconds ? (dailyUsageSeconds / dailyLimitSeconds) * 100 : 0;
     const warn = pct >= 100 ? "red" : pct >= 80 ? "yellow" : "normal";
     return (

@@ -28,7 +28,8 @@ export async function POST() {
     try {
       const clerkUser = await currentUser();
       const name = user.full_name ?? clerkUser?.fullName ?? "ClipCrafter User";
-      const email = user.email ?? clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${userId}@noemail.local`;
+      const email =
+        user.email ?? clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${userId}@noemail.local`;
       const customer = await createCustomer(name, email, userId);
       razorpayCustomerId = customer.id;
     } catch (err) {
