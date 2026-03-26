@@ -53,6 +53,7 @@ export interface CompletedSidebarProps {
   onToggleTranscript: () => void;
   onToggleDownloads: () => void;
   onToggleHowItRan: () => void;
+  onStitchExport?: () => void;
 }
 
 function ViewToggle({
@@ -236,7 +237,10 @@ type ClipViewProps = Pick<
   | "onSetSelectedClipIds"
   | "onUpdateTopicLabel"
   | "onSetTopicOverrides"
->;
+  | "onStitchExport"
+> & {
+  onOpenDownloads?: () => void;
+};
 
 function ClipView(props: ClipViewProps) {
   const {
@@ -266,6 +270,8 @@ function ClipView(props: ClipViewProps) {
     onSetSelectedClipIds,
     onUpdateTopicLabel,
     onSetTopicOverrides,
+    onOpenDownloads,
+    onStitchExport,
   } = props;
   if (clipsStatus === "generating") return <ClipSkeleton />;
   if (clips === null || clips.length === 0)
@@ -312,6 +318,8 @@ function ClipView(props: ClipViewProps) {
         onClipAction={onClipAction}
         onExportClip={onExportClip}
         onGenerateClips={onGenerateClips}
+        onOpenDownloads={onOpenDownloads}
+        onStitchExport={onStitchExport}
       />
     );
   }
@@ -362,6 +370,8 @@ function GenerateSection(p: CompletedSidebarProps) {
         onSetSelectedClipIds={p.onSetSelectedClipIds}
         onUpdateTopicLabel={p.onUpdateTopicLabel}
         onSetTopicOverrides={p.onSetTopicOverrides}
+        onOpenDownloads={p.downloadsOpen ? undefined : p.onToggleDownloads}
+        onStitchExport={p.onStitchExport}
       />
     </>
   );
@@ -379,6 +389,9 @@ export function CompletedSidebar(p: CompletedSidebarProps) {
       <CollapsibleSidebar
         data={p.data}
         artifacts={p.artifacts}
+        clips={p.clips ?? []}
+        projectTitle={p.data.title}
+        stitchUrl={p.data.stitch_url}
         transcriptOpen={p.transcriptOpen}
         downloadsOpen={p.downloadsOpen}
         howItRanOpen={p.howItRanOpen}

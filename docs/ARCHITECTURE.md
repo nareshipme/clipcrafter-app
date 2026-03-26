@@ -51,10 +51,10 @@ User Browser
 
 ### 🗄️ Database — Supabase (Postgres)
 - **URL:** https://supabase.com
-- **Dashboard:** https://app.supabase.com/project/gdipsivdokqmpskhhagg
+- **Dashboard:** https://app.supabase.com/project/qrpcxesqhtuustwyakcd
 - **Docs:** https://supabase.com/docs
 - **Plan:** Free tier
-- **Project ref:** `gdipsivdokqmpskhhagg`
+- **Project ref:** `qrpcxesqhtuustwyakcd`
 - **Used for:** All persistent data — projects, clips, transcripts, highlights, user mappings
 - **Env vars:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 - **Notes:**

@@ -37,6 +37,7 @@ export interface StatusData {
   processing_log: ProcessingLogEntry[];
   transcript: { id: string; segments: Segment[] } | null;
   highlights: { id: string; segments: unknown[] } | null;
+  stitch_url?: string | null;
 }
 
 export interface Clip {

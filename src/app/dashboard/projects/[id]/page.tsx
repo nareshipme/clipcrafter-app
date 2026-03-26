@@ -299,6 +299,7 @@ function CompletedSidebarWrapper({
       onToggleTranscript={() => p.setTranscriptOpen((o) => !o)}
       onToggleDownloads={() => p.setDownloadsOpen((o) => !o)}
       onToggleHowItRan={() => p.setHowItRanOpen((o) => !o)}
+      onStitchExport={p.handleStitchExport}
     />
   );
 }

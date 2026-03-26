@@ -327,6 +327,7 @@ function VideoDisplay({
             ref={videoRef}
             src={videoUrl}
             className="max-h-full max-w-full"
+            playsInline
             onTimeUpdate={onTimeUpdate}
             onLoadedMetadata={onLoadedMetadata}
             onPlay={() => onSetIsPlaying(true)}

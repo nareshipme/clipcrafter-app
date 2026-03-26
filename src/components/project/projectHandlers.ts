@@ -136,6 +136,39 @@ export function makeHandleExportClip(
   };
 }
 
+interface StitchExportArgs {
+  selectedClipIds: Set<string>;
+  withCaptions: boolean;
+}
+
+export function makeHandleStitchExport(id: string, getArgs: () => StitchExportArgs) {
+  return async function handleStitchExport() {
+    const { selectedClipIds, withCaptions } = getArgs();
+    const clipIds = [...selectedClipIds];
+    if (clipIds.length < 2) {
+      toast.warning("Select at least 2 clips to stitch");
+      return;
+    }
+    const toastId = toast.loading(`Stitching ${clipIds.length} clips…`);
+    try {
+      const res = await fetch(`/api/projects/${id}/clips/stitch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clipIds, withCaptions }),
+      });
+      if (res.ok) {
+        toast.success(`Stitching ${clipIds.length} clips — we'll notify you when ready`, {
+          id: toastId,
+        });
+      } else {
+        toast.error("Failed to start stitch", { id: toastId });
+      }
+    } catch {
+      toast.error("Network error — please try again", { id: toastId });
+    }
+  };
+}
+
 interface ExportBatchArgs {
   selectedClipIds: Set<string>;
   withCaptions: boolean;
