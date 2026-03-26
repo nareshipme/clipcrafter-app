@@ -43,7 +43,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: project, error } = await supabaseAdmin
     .from("projects")
-    .select("id, user_id, title, status, error_message, completed_at, processing_log")
+    .select("id, user_id, title, status, error_message, completed_at, processing_log, stitch_url")
     .eq("id", id)
     .single();
 
@@ -69,7 +69,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       processing_log: project.processing_log ?? [],
       transcript,
       highlights,
-      stitch_url: null, // populated after migration 004 is run
+      stitch_url: project.stitch_url ?? null,
     },
     { status: 200 }
   );
