@@ -379,7 +379,8 @@ export async function processVideoHandler(
         .select("duration_seconds")
         .eq("id", projectId)
         .single();
-      const durationSeconds = (project as { duration_seconds?: number } | null)?.duration_seconds ?? 0;
+      const durationSeconds =
+        (project as { duration_seconds?: number } | null)?.duration_seconds ?? 0;
       await incrementUsageSeconds(event.data.userId, durationSeconds);
     });
 
