@@ -35,7 +35,7 @@ export async function POST(request: Request) {
           : (session.subscription?.id ?? null);
 
       // Retrieve the subscription to get the plan
-      let plan = "pro";
+      const plan = "pro";
       if (subscriptionId) {
         // TODO: retrieve plan from Stripe subscription line items if needed
       }
