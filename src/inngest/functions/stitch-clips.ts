@@ -182,6 +182,11 @@ export async function stitchClipsHandler(
     );
   });
 
+  // ── Step 5: save stitch_url to projects table ──
+  await step.run("save-stitch-url", async () => {
+    await supabaseAdmin.from("projects").update({ stitch_url: stitchUrl }).eq("id", projectId);
+  });
+
   return { projectId, stitchUrl, clipCount: clips.length };
 }
 

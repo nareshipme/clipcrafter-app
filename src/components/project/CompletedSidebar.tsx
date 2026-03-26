@@ -391,6 +391,7 @@ export function CompletedSidebar(p: CompletedSidebarProps) {
         artifacts={p.artifacts}
         clips={p.clips ?? []}
         projectTitle={p.data.title}
+        stitchUrl={p.data.stitch_url}
         transcriptOpen={p.transcriptOpen}
         downloadsOpen={p.downloadsOpen}
         howItRanOpen={p.howItRanOpen}

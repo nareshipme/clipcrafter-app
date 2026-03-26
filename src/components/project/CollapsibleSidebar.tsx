@@ -103,12 +103,14 @@ function DownloadsSection({
   artifacts,
   clips,
   projectTitle,
+  stitchUrl,
   open,
   onToggle,
 }: {
   artifacts: Record<string, Artifact>;
   clips?: Clip[];
   projectTitle?: string;
+  stitchUrl?: string | null;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -140,9 +142,13 @@ function DownloadsSection({
           )
         )}
       </div>
-      {clips && clips.length > 0 && (
-        <DownloadsPanel clips={clips} projectTitle={projectTitle ?? ""} />
-      )}
+      {(clips && clips.length > 0) || stitchUrl ? (
+        <DownloadsPanel
+          clips={clips ?? []}
+          projectTitle={projectTitle ?? ""}
+          stitchUrl={stitchUrl}
+        />
+      ) : null}
     </CollapsibleSection>
   );
 }
@@ -189,6 +195,7 @@ export interface CollapsibleSidebarProps {
   artifacts: Record<string, Artifact> | null;
   clips?: Clip[];
   projectTitle?: string;
+  stitchUrl?: string | null;
   transcriptOpen: boolean;
   downloadsOpen: boolean;
   howItRanOpen: boolean;
@@ -202,6 +209,7 @@ export function CollapsibleSidebar({
   artifacts,
   clips,
   projectTitle,
+  stitchUrl,
   transcriptOpen,
   downloadsOpen,
   howItRanOpen,
@@ -217,6 +225,7 @@ export function CollapsibleSidebar({
           artifacts={artifacts}
           clips={clips}
           projectTitle={projectTitle}
+          stitchUrl={stitchUrl}
           open={downloadsOpen}
           onToggle={onToggleDownloads}
         />
