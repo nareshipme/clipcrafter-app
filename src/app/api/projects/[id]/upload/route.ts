@@ -1,7 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getPresignedUploadUrl } from "@/lib/r2";
+import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { getSupabaseUserId } from "@/lib/user";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+
+export const runtime = "nodejs";
+
+// Max file size: 2GB
+export const maxDuration = 60;
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
@@ -29,23 +35,42 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let body: unknown;
+  // Accept multipart form data with the file
+  let formData: FormData;
   try {
-    body = await request.json();
+    formData = await request.formData();
   } catch {
-    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    return Response.json({ error: "Expected multipart/form-data" }, { status: 400 });
   }
 
-  const { filename } = body as {
-    filename?: string;
-    contentType?: string;
-  };
-
-  if (!filename) {
-    return Response.json({ error: "filename is required" }, { status: 400 });
+  const file = formData.get("file") as File | null;
+  if (!file) {
+    return Response.json({ error: "file field is required" }, { status: 400 });
   }
 
-  const { uploadUrl, key } = await getPresignedUploadUrl(filename, userId);
+  const ext = file.name.split(".").pop() ?? "mp4";
+  const key = `uploads/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  return Response.json({ uploadUrl, key }, { status: 200 });
+  // Upload server-side to R2 (no browser CORS needed)
+  const buffer = await file.arrayBuffer();
+  await r2Client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: key,
+      Body: Buffer.from(buffer),
+      ContentType: file.type || `video/${ext}`,
+    })
+  );
+
+  // Save r2_key to project
+  const { error: updateError } = await supabaseAdmin
+    .from("projects")
+    .update({ r2_key: key })
+    .eq("id", id);
+
+  if (updateError) {
+    return Response.json({ error: updateError.message }, { status: 500 });
+  }
+
+  return Response.json({ key }, { status: 200 });
 }
