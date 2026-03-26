@@ -2,12 +2,10 @@ import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { getSupabaseUserId } from "@/lib/user";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 
 export const runtime = "nodejs";
-
-// Max file size: 2GB
-export const maxDuration = 60;
+export const maxDuration = 300; // 5 min for large files
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
@@ -35,32 +33,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Accept multipart form data with the file
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return Response.json({ error: "Expected multipart/form-data" }, { status: 400 });
-  }
-
-  const file = formData.get("file") as File | null;
-  if (!file) {
-    return Response.json({ error: "file field is required" }, { status: 400 });
-  }
-
-  const ext = file.name.split(".").pop() ?? "mp4";
+  // Filename + content-type come as headers — body is raw file stream
+  const filename = request.headers.get("x-filename") ?? "upload.mp4";
+  const contentType = request.headers.get("content-type") ?? "video/mp4";
+  const ext = filename.split(".").pop() ?? "mp4";
   const key = `uploads/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  // Upload server-side to R2 (no browser CORS needed)
-  const buffer = await file.arrayBuffer();
-  await r2Client.send(
-    new PutObjectCommand({
+  if (!request.body) {
+    return Response.json({ error: "No file body" }, { status: 400 });
+  }
+
+  // Stream directly to R2 using multipart upload — no 4MB limit
+  const upload = new Upload({
+    client: r2Client,
+    params: {
       Bucket: R2_BUCKET,
       Key: key,
-      Body: Buffer.from(buffer),
-      ContentType: file.type || `video/${ext}`,
-    })
-  );
+      Body: request.body as unknown as ReadableStream,
+      ContentType: contentType,
+    },
+  });
+
+  await upload.done();
 
   // Save r2_key to project
   const { error: updateError } = await supabaseAdmin

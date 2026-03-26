@@ -56,12 +56,16 @@ async function submitUploadFile(file: File, ctx: SubmitContext): Promise<void> {
     const { id } = await createRes.json();
 
     ctx.setStep("uploading");
-    // Send file directly to our API — server uploads to R2 (no CORS issues)
-    const formData = new FormData();
-    formData.append("file", file);
+    // Stream raw file to API — server forwards to R2 (no CORS, no 4MB limit)
     const uploadRes = await fetch(`/api/projects/${id}/upload`, {
       method: "POST",
-      body: formData,
+      headers: {
+        "content-type": file.type || "video/mp4",
+        "x-filename": file.name,
+      },
+      body: file,
+      // @ts-expect-error — duplex required for streaming in some environments
+      duplex: "half",
     });
     if (!uploadRes.ok) {
       const body = await uploadRes.text();
