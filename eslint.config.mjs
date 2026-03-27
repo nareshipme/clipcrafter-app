@@ -25,13 +25,13 @@ const eslintConfig = defineConfig([
       "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
 
       // No function over 80 lines — forces small focused functions
-      "max-lines-per-function": ["warn", { max: 80, skipBlankLines: true, skipComments: true, IIFEs: true }],
+      "max-lines-per-function": ["error", { max: 80, skipBlankLines: true, skipComments: true, IIFEs: true }],
 
       // No deeply nested code (max 4 levels) — forces early returns
       "max-depth": ["error", 4],
 
       // No functions with too many params — forces objects/destructuring
-      "max-params": ["warn", 4],
+      "max-params": ["error", 4],
 
       // No unused variables (prefix with _ to intentionally ignore)
       "@typescript-eslint/no-unused-vars": ["error", {
@@ -41,13 +41,13 @@ const eslintConfig = defineConfig([
       }],
 
       // No explicit any — forces proper typing
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
 
       // No console.log left in committed code (use logger instead)
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-console": ["error", { allow: ["warn", "error"] }],
 
       // React hooks — always declare deps correctly
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "error",
 
       // No duplicate imports
       "no-duplicate-imports": "error",
@@ -65,10 +65,10 @@ const eslintConfig = defineConfig([
       "no-unreachable": "error",
 
       // No TODO comments left in production code (warn so you notice)
-      "no-warning-comments": ["warn", { terms: ["todo", "fixme", "hack", "xxx"], location: "start" }],
+      "no-warning-comments": ["error", { terms: ["todo", "fixme", "hack", "xxx"], location: "start" }],
 
       // Complexity limit — no spaghetti logic
-      "complexity": ["warn", 10],
+      "complexity": ["error", 10],
     },
   },
 
