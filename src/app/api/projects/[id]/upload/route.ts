@@ -51,7 +51,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .eq("id", id);
 
   if (updateError) {
-    await captureServerError(updateError, { userId, supabaseUserId, route: "upload-project", projectId: id });
+    await captureServerError(updateError, {
+      userId,
+      supabaseUserId,
+      route: "upload-project",
+      projectId: id,
+    });
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 

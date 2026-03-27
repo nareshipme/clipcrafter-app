@@ -29,9 +29,7 @@ export default function RootLayout({
     <ClerkProvider signInFallbackRedirectUrl="/dashboard" signUpFallbackRedirectUrl="/dashboard">
       <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
         <body className="min-h-full flex flex-col">
-          <PostHogProvider>
-            {children}
-          </PostHogProvider>
+          <PostHogProvider>{children}</PostHogProvider>
           <Toaster
             position="bottom-right"
             theme="dark"
