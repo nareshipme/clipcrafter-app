@@ -1,8 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
 // Pricing — TBD during alpha
-export const STARTER_PRICE_INR = 0; // TBD
-export const PRO_PRICE_INR = 0; // TBD
+export const STARTER_PRICE_INR = 99900; // ₹999/month in paise
+export const PRO_PRICE_INR = 249900; // ₹2499/month in paise
 
 export const PLAN_LIMITS: Record<string, number> = {
   free: 1800, // 30 min/month

@@ -36,7 +36,7 @@ const TIERS: Tier[] = [
   },
   {
     name: "Starter",
-    price: "₹TBD",
+    price: "₹999/mo",
     description: "For creators publishing regularly.",
     features: [
       "5 hrs/month processing",
@@ -50,7 +50,7 @@ const TIERS: Tier[] = [
   },
   {
     name: "Pro",
-    price: "₹TBD",
+    price: "₹2,499/mo",
     description: "For power users and teams.",
     features: [
       "20 hrs/month processing",
@@ -75,7 +75,7 @@ function PricingCard({ tier }: { tier: Tier }) {
         <h2 className="text-xl font-bold">{tier.name}</h2>
         <p className="text-3xl font-bold mt-1">
           {tier.price}
-          {tier.price !== "₹0" && tier.price !== "₹TBD" && (
+          {tier.price !== "₹0" && tier.price !== "₹999/mo" && tier.price !== "₹2,499/mo" && (
             <span className="text-sm font-normal text-gray-400">/mo</span>
           )}
         </p>
@@ -89,29 +89,41 @@ function PricingCard({ tier }: { tier: Tier }) {
           </li>
         ))}
       </ul>
-      {"ctaAction" in tier ? (
-        <a
-          href="/dashboard"
-          className="block text-center rounded-lg px-4 py-2.5 text-sm font-semibold bg-violet-600 hover:bg-violet-500 transition-colors"
-        >
-          Start Free Trial
-        </a>
-      ) : (
-        <a
-          href={tier.ctaHref ?? "#"}
-          aria-disabled={tier.ctaDisabled}
-          className={`block text-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
-            tier.ctaDisabled
-              ? "bg-gray-800 text-gray-500 cursor-not-allowed pointer-events-none"
-              : tier.highlighted
-                ? "bg-violet-600 hover:bg-violet-500"
-                : "bg-gray-800 hover:bg-gray-700"
-          }`}
-        >
-          {tier.cta}
-        </a>
-      )}
+      <TierCTA tier={tier} />
     </div>
+  );
+}
+
+function TierCTA({ tier }: { tier: Tier }) {
+  const btnClass =
+    "block text-center rounded-lg px-4 py-2.5 text-sm font-semibold bg-violet-600 hover:bg-violet-500 transition-colors";
+  if (tier.ctaAction === "start-trial") {
+    return (
+      <a href="/dashboard" className={btnClass}>
+        Start Free Trial
+      </a>
+    );
+  }
+  if (tier.ctaAction === "subscribe-starter" || tier.ctaAction === "subscribe-pro") {
+    const plan = tier.ctaAction === "subscribe-pro" ? "pro" : "starter";
+    return (
+      <a href={`/dashboard/billing?plan=${plan}`} className={btnClass}>
+        {tier.cta}
+      </a>
+    );
+  }
+  const disabledClass = "bg-gray-800 text-gray-500 cursor-not-allowed pointer-events-none";
+  const activeClass = tier.highlighted
+    ? "bg-violet-600 hover:bg-violet-500"
+    : "bg-gray-800 hover:bg-gray-700";
+  return (
+    <a
+      href={tier.ctaHref ?? "#"}
+      aria-disabled={tier.ctaDisabled}
+      className={`block text-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${tier.ctaDisabled ? disabledClass : activeClass}`}
+    >
+      {tier.cta}
+    </a>
   );
 }
 
@@ -123,7 +135,7 @@ export default function PricingPage() {
           <h1 className="text-4xl font-bold mb-4">Simple, transparent pricing</h1>
           <p className="text-gray-400 text-lg">All prices in INR. Powered by Razorpay.</p>
           <p className="text-gray-500 text-sm mt-2">
-            Note: Razorpay integration for paid plans coming soon. Starter &amp; Pro prices TBD.
+            Note: Secure payments via Razorpay. Cancel anytime.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
