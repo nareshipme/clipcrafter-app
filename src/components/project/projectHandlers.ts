@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import posthog from "posthog-js";
 import { Clip } from "./types";
 
 interface ClipStateSetters {
@@ -79,6 +80,7 @@ export function makeHandleGenerateClips(
         body: JSON.stringify(body),
       });
       if (res.ok) {
+        posthog.capture("clips_generated", { clipCount, clipTargetDuration });
         toast.success("Clip generation started", { id: toastId });
         setClipsStatus("generating");
       } else {
@@ -186,6 +188,7 @@ export function makeHandleExportBatch(
       toast.warning("Select at least one clip to export");
       return;
     }
+    posthog.capture("export_started", { clipCount: selectedClipIds.size, withCaptions });
     const toastId = toast.loading(
       `Queuing ${clipIds.length} clip${clipIds.length > 1 ? "s" : ""} for export…`
     );
