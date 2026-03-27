@@ -1,5 +1,21 @@
 import { auth } from "@clerk/nextjs/server";
+import { supabaseAdmin } from "@/lib/supabase";
 import { getUserBilling, isAlpha, getEffectiveLimitSeconds } from "@/lib/billing";
+
+function getAlphaExpiresInDays(alphaExpiresAt: string | null): number | null {
+  if (!alphaExpiresAt) return null;
+  const diff = new Date(alphaExpiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+async function fetchRazorpaySubscriptionId(clerkId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("users")
+    .select("razorpay_subscription_id")
+    .eq("clerk_id", clerkId)
+    .single();
+  return data?.razorpay_subscription_id ?? null;
+}
 
 export async function GET() {
   const { userId } = await auth();
@@ -14,17 +30,11 @@ export async function GET() {
 
   const alpha = isAlpha(user);
   const limitSeconds = getEffectiveLimitSeconds(user);
-
-  const now = new Date();
   const alphaExpiresAt = user.alpha_expires_at ?? null;
   const trialEndsAt = user.trial_ends_at ?? null;
-  const isTrialActive = !!trialEndsAt && new Date(trialEndsAt) > now;
-
-  let alphaExpiresInDays: number | null = null;
-  if (alphaExpiresAt) {
-    const diff = new Date(alphaExpiresAt).getTime() - now.getTime();
-    alphaExpiresInDays = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }
+  const isTrialActive = !!trialEndsAt && new Date(trialEndsAt) > new Date();
+  const alphaExpiresInDays = getAlphaExpiresInDays(alphaExpiresAt);
+  const razorpaySubscriptionId = await fetchRazorpaySubscriptionId(userId);
 
   return Response.json({
     plan: user.plan,
@@ -35,5 +45,6 @@ export async function GET() {
     dailyLimitSeconds: limitSeconds === Infinity ? null : limitSeconds,
     trialEndsAt,
     isTrialActive,
+    razorpaySubscriptionId,
   });
 }

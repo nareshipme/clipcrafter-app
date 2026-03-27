@@ -116,6 +116,12 @@ export default function DashboardPage() {
       <header className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-800">
         <span className="text-lg sm:text-xl font-bold">ClipCrafter</span>
         <div className="flex items-center gap-3">
+          <a
+            href="/dashboard/billing"
+            className="text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            Billing
+          </a>
           <button
             type="button"
             onClick={() => setModalOpen(true)}
