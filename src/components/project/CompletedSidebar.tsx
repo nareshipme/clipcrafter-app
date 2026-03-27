@@ -194,10 +194,22 @@ function ClipSkeleton() {
   );
 }
 
-function NoClipsState({ onGenerateClips }: { onGenerateClips: () => void }) {
+function NoClipsState({
+  onGenerateClips,
+  errorMessage,
+}: {
+  onGenerateClips: () => void;
+  errorMessage?: string;
+}) {
   return (
     <div className="text-center py-14 bg-gray-900 border border-gray-800 rounded-xl flex flex-col items-center gap-4">
-      <p className="text-gray-400 text-sm">No clips yet — generate AI clips from your highlights</p>
+      {errorMessage ? (
+        <p className="text-red-400 text-sm">{errorMessage}</p>
+      ) : (
+        <p className="text-gray-400 text-sm">
+          No clips yet — generate AI clips from your highlights
+        </p>
+      )}
       <button
         type="button"
         onClick={onGenerateClips}
@@ -274,6 +286,13 @@ function ClipView(props: ClipViewProps) {
     onStitchExport,
   } = props;
   if (clipsStatus === "generating") return <ClipSkeleton />;
+  if (clipsStatus === "error")
+    return (
+      <NoClipsState
+        onGenerateClips={onGenerateClips}
+        errorMessage="Clip generation timed out. Please try again."
+      />
+    );
   if (clips === null || clips.length === 0)
     return <NoClipsState onGenerateClips={onGenerateClips} />;
   if (viewMode === "graph" && computedGraph) {
