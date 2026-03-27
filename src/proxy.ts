@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api(.*)"]);
 const isPublicApiRoute = createRouteMatcher([
   "/api/inngest(.*)", // Inngest dev server must reach this
-  "/api/webhooks(.*)", // Clerk webhooks are self-authenticating
+  "/api/webhooks(.*)", // Clerk + Razorpay webhooks are self-authenticating
 ]);
 const isAuthRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
