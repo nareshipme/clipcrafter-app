@@ -26,7 +26,6 @@
     "@remotion/bundler": "^4.0.438",
     "@remotion/captions": "^4.0.438",
     "@remotion/renderer": "^4.0.438",
-    "@sentry/nextjs": "^10.46.0",
     "@supabase/supabase-js": "^2.99.3",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@xyflow/react": "^12.10.1",
