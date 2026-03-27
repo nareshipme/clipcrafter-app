@@ -44,9 +44,8 @@ type ParsedEvent = {
 } | null;
 
 function extractEntity(payload: Record<string, unknown>): Record<string, unknown> | undefined {
-  return (
-    (payload.payload as Record<string, unknown>)?.subscription as Record<string, unknown>
-  )?.entity as Record<string, unknown> | undefined;
+  return ((payload.payload as Record<string, unknown>)?.subscription as Record<string, unknown>)
+    ?.entity as Record<string, unknown> | undefined;
 }
 
 function parseSubscriptionEvent(body: string): ParsedEvent {

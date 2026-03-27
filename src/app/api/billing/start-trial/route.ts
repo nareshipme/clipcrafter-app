@@ -15,7 +15,8 @@ type UserRow = {
 async function getCustomerNameAndEmail(user: UserRow, userId: string) {
   const clerkUser = await currentUser();
   const name = user.full_name ?? clerkUser?.fullName ?? "ClipCrafter User";
-  const email = user.email ?? clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${userId}@noemail.local`;
+  const email =
+    user.email ?? clerkUser?.emailAddresses?.[0]?.emailAddress ?? `${userId}@noemail.local`;
   return { name, email };
 }
 
