@@ -9,6 +9,7 @@ import {
   makeHandleClipAction,
   makeHandleExportClip,
   makeHandleExportBatch,
+  makeHandleStitchExport,
 } from "./projectHandlers";
 import {
   makeSeekToClip,
@@ -83,6 +84,10 @@ function buildProjectHandlers(opts: ProjectHandlerOpts) {
       () => ({ selectedClipIds: s.selectedClipIds, withCaptions: s.withCaptions }),
       setClips
     ),
+    handleStitchExport: makeHandleStitchExport(id, () => ({
+      selectedClipIds: s.selectedClipIds,
+      withCaptions: s.withCaptions,
+    })),
   };
 }
 
@@ -141,9 +146,7 @@ function buildVideoHandlers(opts: VideoHandlerOpts) {
     },
     handleTimelineClick: makeHandleTimelineClick(timelineRef, durationRef, dragStateRef, videoRef),
     handleHandleMouseDown: makeHandleHandleMouseDown(
-      timelineRef,
-      durationRef,
-      dragStateRef,
+      { timelineRef, durationRef, dragStateRef, videoRef, clipsRef },
       setClips
     ),
     switchView: (mode: "list" | "graph") => s.setViewMode(mode),

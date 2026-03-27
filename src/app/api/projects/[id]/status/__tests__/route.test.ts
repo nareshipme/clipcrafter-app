@@ -4,6 +4,10 @@ import { Feature, Scenario } from "@/test/bdd";
 const mockAuth = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 
+// Return the clerkId as-is so user_id mismatches in 403 tests still work
+const mockGetSupabaseUserId = vi.fn().mockImplementation((id: string) => Promise.resolve(id));
+vi.mock("@/lib/user", () => ({ getSupabaseUserId: mockGetSupabaseUserId }));
+
 const mockFrom = vi.fn();
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: mockFrom },
@@ -28,12 +32,41 @@ Feature("GET /api/projects/[id]/status", () => {
   Scenario("authenticated user fetches project status", () => {
     it("Given a valid project, Then returns id, status, transcript, highlights", async () => {
       mockAuth.mockResolvedValue({ userId: "user_123" });
-      mockFrom.mockReturnValue({
+
+      const mockTranscriptRow = {
+        id: "tx_1",
+        segments: [{ id: 0, start: 0, end: 5, text: "Hello world" }],
+      };
+      const mockHighlightRow = { id: "hl_1", segments: [{ start: 0, end: 5, text: "clip1" }] };
+
+      // For the completed project, the route calls:
+      //   1. from("projects").select(...).eq(id).single()    — project lookup
+      //   2. from("transcripts").select(...).eq(...).order(...).limit(1).single()
+      //   3. from("highlights").select(...).eq(...).order(...).limit(1).single()
+      const makeOrderChain = (data: unknown) => ({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              limit: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({ data, error: null }),
+              }),
+            }),
             single: vi.fn().mockResolvedValue({ data: mockProject, error: null }),
           }),
         }),
+      });
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "transcripts") return makeOrderChain(mockTranscriptRow);
+        if (table === "highlights") return makeOrderChain(mockHighlightRow);
+        // "projects"
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: mockProject, error: null }),
+            }),
+          }),
+        };
       });
 
       const { GET } = await import("@/app/api/projects/[id]/status/route");
@@ -45,8 +78,8 @@ Feature("GET /api/projects/[id]/status", () => {
       expect(res.status).toBe(200);
       expect(json.id).toBe("proj_1");
       expect(json.status).toBe("completed");
-      expect(json.transcript).toBe("Hello world");
-      expect(json.highlights).toEqual(["clip1", "clip2"]);
+      expect(json.transcript).toMatchObject({ id: "tx_1" });
+      expect(json.highlights).toMatchObject({ id: "hl_1" });
     });
   });
 

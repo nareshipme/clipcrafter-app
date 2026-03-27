@@ -22,10 +22,14 @@ vi.mock("groq-sdk", () => {
 
 vi.mock("fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs")>();
-  return {
+  const mocked = {
     ...actual,
     createReadStream: vi.fn().mockReturnValue("mock-stream"),
+    // Return a small file size so transcribeAudio takes the fast path (no chunking)
+    statSync: vi.fn().mockReturnValue({ size: 1024 * 1024 }), // 1 MB — well under 24 MB limit
   };
+  // groq.ts uses `import fs from "fs"` (CJS default); expose as both named and default
+  return { ...mocked, default: mocked };
 });
 
 Feature("Groq transcribeAudio", () => {
@@ -73,6 +77,24 @@ Feature("Groq transcribeAudio", () => {
     Then("it throws an error when path is empty", async () => {
       const { transcribeAudio } = await import("@/lib/groq");
       await expect(transcribeAudio("")).rejects.toThrow("audioPath is required");
+    });
+  });
+
+  Scenario("Rate limit error is re-wrapped with retry info", () => {
+    Then("it throws a 'Groq rate limit' error when API returns retry-after message", async () => {
+      mockCreate.mockRejectedValueOnce(
+        new Error("Rate limit reached — please try again in 1m30s for this request")
+      );
+
+      const { transcribeAudio } = await import("@/lib/groq");
+      await expect(transcribeAudio("/tmp/audio.mp3")).rejects.toThrow(/Groq rate limit/);
+    });
+
+    Then("it rethrows unrelated errors as-is", async () => {
+      mockCreate.mockRejectedValueOnce(new Error("Network failure"));
+
+      const { transcribeAudio } = await import("@/lib/groq");
+      await expect(transcribeAudio("/tmp/audio.mp3")).rejects.toThrow("Network failure");
     });
   });
 });

@@ -4,6 +4,10 @@ import { Feature, Scenario } from "@/test/bdd";
 const mockAuth = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 
+// Return the clerkId as-is so user_id mismatches in 403 tests still work
+const mockGetSupabaseUserId = vi.fn().mockImplementation((id: string) => Promise.resolve(id));
+vi.mock("@/lib/user", () => ({ getSupabaseUserId: mockGetSupabaseUserId }));
+
 const mockFrom = vi.fn();
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: mockFrom },

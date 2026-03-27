@@ -4,7 +4,8 @@ import { Feature, Scenario } from "@/test/bdd";
 const mockAuth = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 
-const mockGetSupabaseUserId = vi.fn();
+// Return clerkId as-is so user_id mismatches work for 403 tests
+const mockGetSupabaseUserId = vi.fn().mockImplementation((id: string) => Promise.resolve(id));
 vi.mock("@/lib/user", () => ({ getSupabaseUserId: mockGetSupabaseUserId }));
 
 const mockFrom = vi.fn();
@@ -12,30 +13,12 @@ vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: mockFrom },
 }));
 
-const mockParams = Promise.resolve({ id: "proj_1" });
+const mockInngestSend = vi.fn().mockResolvedValue({});
+vi.mock("@/lib/inngest", () => ({
+  inngest: { send: mockInngestSend },
+}));
 
-const mockHighlightSegments = [
-  {
-    start: 10,
-    end: 40,
-    text: "You have to go all in",
-    reason: "Powerful hook",
-    score: 85,
-    score_reason: "Strong hook strength",
-    hashtags: ["#hustle", "#success"],
-    clip_title: "Go All In Today",
-  },
-  {
-    start: 60,
-    end: 90,
-    text: "Failure is just feedback",
-    reason: "Quotable",
-    score: 72,
-    score_reason: "High quotability",
-    hashtags: ["#mindset", "#growth"],
-    clip_title: "Failure Is Just Feedback",
-  },
-];
+const mockParams = Promise.resolve({ id: "proj_1" });
 
 Feature("POST /api/projects/[id]/clips", () => {
   beforeEach(() => {
@@ -43,30 +26,63 @@ Feature("POST /api/projects/[id]/clips", () => {
     vi.clearAllMocks();
   });
 
-  Scenario("authenticated user generates clips from highlights", () => {
-    it("Given valid project + highlights, Then inserts clip rows and returns them", async () => {
-      mockAuth.mockResolvedValue({ userId: "clerk_1" });
+  Scenario("authenticated user triggers clip generation via Inngest", () => {
+    it("Given valid project + existing transcript, Then fires Inngest job and returns 202", async () => {
+      mockAuth.mockResolvedValue({ userId: "user_123" });
+      mockGetSupabaseUserId.mockResolvedValue("user_123");
+      mockInngestSend.mockResolvedValue({});
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "projects") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: "proj_1", user_id: "user_123" },
+                  error: null,
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === "transcripts") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { id: "tx_1" },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      });
+
+      const { POST } = await import("@/app/api/projects/[id]/clips/route");
+      const req = new Request("http://localhost/api/projects/proj_1/clips", { method: "POST" });
+      const res = await POST(req, { params: mockParams });
+      const json = await res.json();
+
+      expect(res.status).toBe(202);
+      expect(json.status).toBe("generating");
+      expect(mockInngestSend).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "clips/generate" })
+      );
+    });
+  });
+
+  Scenario("no transcript yet returns 422", () => {
+    it("Given project with no transcript, Then returns 422", async () => {
+      mockAuth.mockResolvedValue({ userId: "user_123" });
       mockGetSupabaseUserId.mockResolvedValue("user_123");
 
-      const mockClips = mockHighlightSegments.map((h, i) => ({
-        id: `clip_${i}`,
-        project_id: "proj_1",
-        start_sec: h.start,
-        end_sec: h.end,
-        score: h.score,
-        score_reason: h.score_reason,
-        hashtags: h.hashtags,
-        clip_title: h.clip_title,
-        title: h.text,
-        status: "pending",
-        caption_style: "hormozi",
-        aspect_ratio: "9:16",
-      }));
-
-      // Chain: projects.select.eq.single → project ownership check
-      // highlights.select.eq.order.limit.single → get highlights
-      // clips.insert.select → inserted clips
-      const callCount = 0;
       mockFrom.mockImplementation((table: string) => {
         if (table === "projects") {
           return {
@@ -80,26 +96,14 @@ Feature("POST /api/projects/[id]/clips", () => {
             }),
           };
         }
-        if (table === "highlights") {
+        if (table === "transcripts") {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    single: vi.fn().mockResolvedValue({
-                      data: { id: "hl_1", segments: mockHighlightSegments },
-                      error: null,
-                    }),
-                  }),
+                limit: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: null, error: null }),
                 }),
               }),
-            }),
-          };
-        }
-        if (table === "clips") {
-          return {
-            insert: vi.fn().mockReturnValue({
-              select: vi.fn().mockResolvedValue({ data: mockClips, error: null }),
             }),
           };
         }
@@ -109,12 +113,8 @@ Feature("POST /api/projects/[id]/clips", () => {
       const { POST } = await import("@/app/api/projects/[id]/clips/route");
       const req = new Request("http://localhost/api/projects/proj_1/clips", { method: "POST" });
       const res = await POST(req, { params: mockParams });
-      const json = await res.json();
 
-      expect(res.status).toBe(201);
-      expect(Array.isArray(json.clips)).toBe(true);
-      expect(json.clips).toHaveLength(2);
-      expect(json.clips[0].score).toBe(85);
+      expect(res.status).toBe(422);
     });
   });
 
@@ -131,7 +131,7 @@ Feature("POST /api/projects/[id]/clips", () => {
 
   Scenario("project belongs to different user", () => {
     it("Given mismatched user_id, Then returns 403", async () => {
-      mockAuth.mockResolvedValue({ userId: "clerk_other" });
+      mockAuth.mockResolvedValue({ userId: "user_other" });
       mockGetSupabaseUserId.mockResolvedValue("user_other");
 
       mockFrom.mockImplementation((table: string) => {
@@ -165,8 +165,8 @@ Feature("GET /api/projects/[id]/clips", () => {
   });
 
   Scenario("authenticated user lists clips", () => {
-    it("Given existing clips, Then returns array sorted by score desc", async () => {
-      mockAuth.mockResolvedValue({ userId: "clerk_1" });
+    it("Given existing clips, Then returns clips array and clips_status", async () => {
+      mockAuth.mockResolvedValue({ userId: "user_123" });
       mockGetSupabaseUserId.mockResolvedValue("user_123");
 
       const mockClips = [
@@ -180,7 +180,13 @@ Feature("GET /api/projects/[id]/clips", () => {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 single: vi.fn().mockResolvedValue({
-                  data: { id: "proj_1", user_id: "user_123" },
+                  data: {
+                    id: "proj_1",
+                    user_id: "user_123",
+                    clips_status: "idle",
+                    topic_map: null,
+                    video_graph: null,
+                  },
                   error: null,
                 }),
               }),
@@ -206,6 +212,7 @@ Feature("GET /api/projects/[id]/clips", () => {
 
       expect(res.status).toBe(200);
       expect(json.clips).toHaveLength(2);
+      expect(json.clips_status).toBe("idle");
     });
   });
 });

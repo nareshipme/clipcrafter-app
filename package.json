@@ -1,5 +1,5 @@
 {
-  "name": "toolnexus-app",
+  "name": "clipcrafter-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1013.0",
+    "@aws-sdk/lib-storage": "^3.1018.0",
     "@aws-sdk/s3-request-presigner": "^3.1013.0",
     "@clerk/nextjs": "^7.0.5",
     "@google/generative-ai": "^0.24.1",
@@ -33,6 +34,7 @@
     "groq-sdk": "^1.1.1",
     "inngest": "^3.52.7",
     "next": "16.2.0",
+    "razorpay": "^2.9.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "remotion": "^4.0.438",
@@ -50,6 +52,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
     "husky": "^9.1.7",

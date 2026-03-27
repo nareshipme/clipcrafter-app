@@ -1,5 +1,5 @@
-import { render, screen, waitFor, act } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) => (
@@ -11,45 +11,118 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-// Import the inner testable component, not the page wrapper
+// Mock heavy subcomponents that aren't the focus of these tests
+vi.mock("@/components/project/PlayerSection", () => ({
+  PlayerSection: () => <div data-testid="player-section" />,
+}));
+vi.mock("@/components/project/CompletedSidebar", () => ({
+  CompletedSidebar: () => <div data-testid="completed-sidebar" />,
+}));
+vi.mock("@/components/project/CollapsibleSidebar", () => ({
+  CollapsibleSidebar: () => <div data-testid="collapsible-sidebar" />,
+}));
+vi.mock("@/components/project/GraphView", () => ({
+  GraphView: () => <div data-testid="graph-view" />,
+}));
+
+// Use vi.hoisted so the variable is available when vi.mock factory runs (mocks are hoisted)
+const mockUseProjectData = vi.hoisted(() => vi.fn());
+vi.mock("@/components/project/useProjectData", () => ({
+  useProjectData: mockUseProjectData,
+}));
+
+// Import the inner testable component after mocks are declared
 import { ProjectDetailContent } from "../page";
 
-const completedProject = {
-  id: "proj-test-123",
-  status: "completed",
-  error_message: null,
-  completed_at: new Date().toISOString(),
-};
-
-const processingProject = {
-  id: "proj-test-123",
-  status: "processing",
-  error_message: null,
-  completed_at: null,
-};
-
-const failedProject = {
-  id: "proj-test-123",
-  status: "failed",
-  error_message: "Transcription failed",
-  completed_at: null,
-};
+function makeHookResult(overrides: Partial<{ status: string; errorMessage: string | null }> = {}) {
+  const status = overrides.status ?? "completed";
+  const noop = () => {};
+  const asyncNoop = async () => {};
+  return {
+    data: status
+      ? {
+          id: "proj-test-123",
+          title: "Test Project",
+          status,
+          error_message: overrides.errorMessage ?? null,
+          completed_at: status === "completed" ? new Date().toISOString() : null,
+          processing_log: [],
+          transcript: null,
+          highlights: null,
+        }
+      : null,
+    loading: false,
+    artifacts: null,
+    clips: null,
+    clipsStatus: "idle",
+    selectedTopic: null,
+    setSelectedTopic: noop,
+    selectedClipId: null,
+    setSelectedClipId: noop,
+    clipCount: "auto" as const,
+    setClipCount: noop,
+    clipPrompt: "",
+    setClipPrompt: noop,
+    clipTargetDuration: "",
+    setClipTargetDuration: noop,
+    selectedClipIds: new Set<string>(),
+    setSelectedClipIds: noop,
+    withCaptions: false,
+    setWithCaptions: noop,
+    videoRef: { current: null },
+    timelineRef: { current: null },
+    duration: 0,
+    setDuration: noop,
+    currentTime: 0,
+    setCurrentTime: noop,
+    isPlaying: false,
+    setIsPlaying: noop,
+    isLooping: false,
+    setIsLooping: noop,
+    showCaptions: false,
+    setShowCaptions: noop,
+    isPreviewing: false,
+    videoUrl: null,
+    isYouTube: false,
+    youTubeVideoId: null,
+    transcriptOpen: false,
+    setTranscriptOpen: noop,
+    downloadsOpen: false,
+    setDownloadsOpen: noop,
+    howItRanOpen: false,
+    setHowItRanOpen: noop,
+    viewMode: "list" as const,
+    topicOverrides: {},
+    setTopicOverrides: noop,
+    handleRetry: asyncNoop,
+    handleDelete: asyncNoop,
+    handleGenerateClips: asyncNoop,
+    handleClipAction: asyncNoop,
+    handleExportClip: asyncNoop,
+    handleExportBatch: asyncNoop,
+    togglePlay: noop,
+    seekToClip: noop,
+    skipPrev: noop,
+    skipNext: noop,
+    handlePlayAll: noop,
+    stopPreviewing: noop,
+    handleTimeUpdate: noop,
+    handleLoadedMetadata: noop,
+    handleTimelineClick: noop,
+    handleHandleMouseDown: noop,
+    switchView: noop,
+    updateTopicLabel: noop,
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  global.fetch = vi.fn();
-});
-
-afterEach(() => {
-  vi.useRealTimers();
+  mockUseProjectData.mockReturnValue(makeHookResult());
 });
 
 describe("ProjectDetailPage", () => {
   it("shows a back button linking to /dashboard", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => completedProject,
-    });
+    mockUseProjectData.mockReturnValue(makeHookResult({ status: "completed" }));
     render(<ProjectDetailContent id="proj-test-123" />);
     await waitFor(() => {
       expect(screen.getByRole("link", { name: /back/i })).toHaveAttribute("href", "/dashboard");
@@ -57,10 +130,7 @@ describe("ProjectDetailPage", () => {
   });
 
   it("shows the status badge for a completed project", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => completedProject,
-    });
+    mockUseProjectData.mockReturnValue(makeHookResult({ status: "completed" }));
     render(<ProjectDetailContent id="proj-test-123" />);
     await waitFor(() => {
       expect(screen.getByTestId("status-badge")).toHaveTextContent("completed");
@@ -68,48 +138,26 @@ describe("ProjectDetailPage", () => {
   });
 
   it("shows processing stepper when project is in processing state", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => processingProject,
-    });
+    mockUseProjectData.mockReturnValue(makeHookResult({ status: "processing" }));
     render(<ProjectDetailContent id="proj-test-123" />);
     await waitFor(() => {
       expect(screen.getByTestId("processing-stepper")).toBeInTheDocument();
     });
   });
 
-  it("registers a 3-second polling interval while processing", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => processingProject,
+  it("does not show processing stepper for a completed project", async () => {
+    mockUseProjectData.mockReturnValue(makeHookResult({ status: "completed" }));
+    render(<ProjectDetailContent id="proj-test-123" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("status-badge")).toBeInTheDocument();
     });
-
-    // Render and let React process all async effects (fetch + setState + polling effect)
-    await act(async () => {
-      render(<ProjectDetailContent id="proj-test-123" />);
-    });
-
-    const intervalDelays: number[] = [];
-    const originalSetInterval = global.setInterval;
-    vi.spyOn(global, "setInterval").mockImplementation((fn: TimerHandler, delay?: number) => {
-      intervalDelays.push(delay ?? 0);
-      return 0 as unknown as ReturnType<typeof setInterval>;
-    });
-
-    // Force a re-render by triggering the polling effect via a state change
-    // The fact that the stepper is shown means the polling effect was active
-    expect(screen.getByTestId("processing-stepper")).toBeInTheDocument();
-
-    vi.spyOn(global, "setInterval").mockImplementation(
-      originalSetInterval as unknown as typeof setInterval
-    );
+    expect(screen.queryByTestId("processing-stepper")).not.toBeInTheDocument();
   });
 
   it("shows error message and retry button for failed project", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => failedProject,
-    });
+    mockUseProjectData.mockReturnValue(
+      makeHookResult({ status: "failed", errorMessage: "Transcription failed" })
+    );
     render(<ProjectDetailContent id="proj-test-123" />);
     await waitFor(() => {
       expect(screen.getByText("Transcription failed")).toBeInTheDocument();
@@ -118,10 +166,7 @@ describe("ProjectDetailPage", () => {
   });
 
   it("shows all 5 processing stages in the stepper", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => processingProject,
-    });
+    mockUseProjectData.mockReturnValue(makeHookResult({ status: "processing" }));
     render(<ProjectDetailContent id="proj-test-123" />);
     await waitFor(() => {
       expect(screen.getByText(/downloading video/i)).toBeInTheDocument();
@@ -133,28 +178,25 @@ describe("ProjectDetailPage", () => {
   });
 
   it("does not register a polling interval for a completed project", async () => {
+    // With useProjectData mocked, the component itself doesn't set up any intervals
+    // The hook's polling is tested separately in usePollingEffects tests
     const intervalDelays: number[] = [];
     const originalSetInterval = global.setInterval;
     vi.spyOn(global, "setInterval").mockImplementation((fn: TimerHandler, delay?: number) => {
       intervalDelays.push(delay ?? 0);
-      return 0 as unknown as ReturnType<typeof setInterval>;
+      return originalSetInterval(fn as () => void, delay);
     });
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => completedProject,
-    });
+    mockUseProjectData.mockReturnValue(makeHookResult({ status: "completed" }));
     render(<ProjectDetailContent id="proj-test-123" />);
 
     await waitFor(() => {
       expect(screen.getByTestId("status-badge")).toBeInTheDocument();
     });
 
-    // RTL's waitFor may use setInterval(50ms), but the component should NOT set up a 3s interval
+    // The page component itself should not register any 3-second intervals
     expect(intervalDelays).not.toContain(3000);
 
-    vi.spyOn(global, "setInterval").mockImplementation(
-      originalSetInterval as unknown as typeof setInterval
-    );
+    vi.restoreAllMocks();
   });
 });

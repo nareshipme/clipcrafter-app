@@ -1,6 +1,9 @@
 /**
  * DELETE /api/projects/[id]
  * Deletes a project and all its related data (transcripts, highlights, R2 files).
+ *
+ * PATCH /api/projects/[id]
+ * Updates project fields. Currently supports: title.
  */
 import { auth } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -11,6 +14,43 @@ import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabaseUserId = await getSupabaseUserId(userId);
+  if (!supabaseUserId) return Response.json({ error: "Failed to resolve user" }, { status: 500 });
+
+  const { id } = await params;
+  const body = await request.json();
+  const { title } = body as { title?: string };
+
+  if (typeof title !== "string" || title.trim().length === 0) {
+    return Response.json({ error: "title must be a non-empty string" }, { status: 400 });
+  }
+
+  const { data: project, error: fetchError } = await supabaseAdmin
+    .from("projects")
+    .select("id, user_id")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !project) return Response.json({ error: "Project not found" }, { status: 404 });
+  if (project.user_id !== supabaseUserId)
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from("projects")
+    .update({ title: title.trim() })
+    .eq("id", id)
+    .select("id, title")
+    .single();
+
+  if (updateError) return Response.json({ error: updateError.message }, { status: 500 });
+
+  return Response.json({ project: updated }, { status: 200 });
+}
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();

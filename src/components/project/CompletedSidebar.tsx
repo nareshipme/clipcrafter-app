@@ -53,6 +53,7 @@ export interface CompletedSidebarProps {
   onToggleTranscript: () => void;
   onToggleDownloads: () => void;
   onToggleHowItRan: () => void;
+  onStitchExport?: () => void;
 }
 
 function ViewToggle({
@@ -193,10 +194,22 @@ function ClipSkeleton() {
   );
 }
 
-function NoClipsState({ onGenerateClips }: { onGenerateClips: () => void }) {
+function NoClipsState({
+  onGenerateClips,
+  errorMessage,
+}: {
+  onGenerateClips: () => void;
+  errorMessage?: string;
+}) {
   return (
     <div className="text-center py-14 bg-gray-900 border border-gray-800 rounded-xl flex flex-col items-center gap-4">
-      <p className="text-gray-400 text-sm">No clips yet — generate AI clips from your highlights</p>
+      {errorMessage ? (
+        <p className="text-red-400 text-sm">{errorMessage}</p>
+      ) : (
+        <p className="text-gray-400 text-sm">
+          No clips yet — generate AI clips from your highlights
+        </p>
+      )}
       <button
         type="button"
         onClick={onGenerateClips}
@@ -236,58 +249,31 @@ type ClipViewProps = Pick<
   | "onSetSelectedClipIds"
   | "onUpdateTopicLabel"
   | "onSetTopicOverrides"
->;
+  | "onStitchExport"
+> & {
+  onOpenDownloads?: () => void;
+};
 
-function ClipView(props: ClipViewProps) {
-  const {
-    clips,
-    sortedClips,
-    computedGraph,
-    viewMode,
-    clipsStatus,
-    selectedClipId,
-    selectedClipIds,
-    selectedTopic,
-    withCaptions,
-    topicOverrides,
-    videoRef,
-    onSwitchView,
-    onGenerateClips,
-    onSetSelectedTopic,
-    onSetSelectedClipId,
-    onSeekToClip,
-    onToggleClipCheck,
-    onSelectAll,
-    onDeselectAll,
-    onToggleCaptions,
-    onExportBatch,
-    onClipAction,
-    onExportClip,
-    onSetSelectedClipIds,
-    onUpdateTopicLabel,
-    onSetTopicOverrides,
-  } = props;
-  if (clipsStatus === "generating") return <ClipSkeleton />;
-  if (clips === null || clips.length === 0)
-    return <NoClipsState onGenerateClips={onGenerateClips} />;
+function ClipViewBody(props: ClipViewProps & { clips: NonNullable<ClipViewProps["clips"]> }) {
+  const { viewMode, computedGraph, sortedClips, clips } = props;
   if (viewMode === "graph" && computedGraph) {
     return (
       <GraphView
         computedGraph={computedGraph}
         clips={clips}
         sortedClips={sortedClips ?? []}
-        selectedClipIds={selectedClipIds}
-        selectedClipId={selectedClipId}
-        topicOverrides={topicOverrides}
-        videoRef={videoRef}
-        onSetSelectedClipId={onSetSelectedClipId}
-        onSeekToClip={onSeekToClip}
-        onSetSelectedClipIds={onSetSelectedClipIds}
-        onUpdateTopicLabel={onUpdateTopicLabel}
-        onSetTopicOverrides={onSetTopicOverrides}
-        onExportBatch={onExportBatch}
-        onSwitchView={onSwitchView}
-        onClipAction={onClipAction}
+        selectedClipIds={props.selectedClipIds}
+        selectedClipId={props.selectedClipId}
+        topicOverrides={props.topicOverrides}
+        videoRef={props.videoRef}
+        onSetSelectedClipId={props.onSetSelectedClipId}
+        onSeekToClip={props.onSeekToClip}
+        onSetSelectedClipIds={props.onSetSelectedClipIds}
+        onUpdateTopicLabel={props.onUpdateTopicLabel}
+        onSetTopicOverrides={props.onSetTopicOverrides}
+        onExportBatch={props.onExportBatch}
+        onSwitchView={props.onSwitchView}
+        onClipAction={props.onClipAction}
       />
     );
   }
@@ -295,27 +281,44 @@ function ClipView(props: ClipViewProps) {
     return (
       <ClipListView
         sortedClips={sortedClips}
-        selectedClipId={selectedClipId}
-        selectedClipIds={selectedClipIds}
-        selectedTopic={selectedTopic}
-        clipsStatus={clipsStatus}
+        selectedClipId={props.selectedClipId}
+        selectedClipIds={props.selectedClipIds}
+        selectedTopic={props.selectedTopic}
+        clipsStatus={props.clipsStatus}
         clips={clips}
-        withCaptions={withCaptions}
-        onSetSelectedTopic={onSetSelectedTopic}
-        onSetSelectedClipId={onSetSelectedClipId}
-        onSeekToClip={onSeekToClip}
-        onToggleClipCheck={onToggleClipCheck}
-        onSelectAll={onSelectAll}
-        onDeselectAll={onDeselectAll}
-        onToggleCaptions={onToggleCaptions}
-        onExportBatch={onExportBatch}
-        onClipAction={onClipAction}
-        onExportClip={onExportClip}
-        onGenerateClips={onGenerateClips}
+        withCaptions={props.withCaptions}
+        onSetSelectedTopic={props.onSetSelectedTopic}
+        onSetSelectedClipId={props.onSetSelectedClipId}
+        onSeekToClip={props.onSeekToClip}
+        onToggleClipCheck={props.onToggleClipCheck}
+        onSelectAll={props.onSelectAll}
+        onDeselectAll={props.onDeselectAll}
+        onToggleCaptions={props.onToggleCaptions}
+        onExportBatch={props.onExportBatch}
+        onClipAction={props.onClipAction}
+        onExportClip={props.onExportClip}
+        onGenerateClips={props.onGenerateClips}
+        onOpenDownloads={props.onOpenDownloads}
+        onStitchExport={props.onStitchExport}
       />
     );
   }
   return null;
+}
+
+function ClipView(props: ClipViewProps) {
+  const { clips, clipsStatus, onGenerateClips } = props;
+  if (clipsStatus === "generating") return <ClipSkeleton />;
+  if (clipsStatus === "error")
+    return (
+      <NoClipsState
+        onGenerateClips={onGenerateClips}
+        errorMessage="Clip generation timed out. Please try again."
+      />
+    );
+  if (clips === null || clips.length === 0)
+    return <NoClipsState onGenerateClips={onGenerateClips} />;
+  return <ClipViewBody {...props} clips={clips} />;
 }
 
 function GenerateSection(p: CompletedSidebarProps) {
@@ -362,6 +365,8 @@ function GenerateSection(p: CompletedSidebarProps) {
         onSetSelectedClipIds={p.onSetSelectedClipIds}
         onUpdateTopicLabel={p.onUpdateTopicLabel}
         onSetTopicOverrides={p.onSetTopicOverrides}
+        onOpenDownloads={p.downloadsOpen ? undefined : p.onToggleDownloads}
+        onStitchExport={p.onStitchExport}
       />
     </>
   );
@@ -379,6 +384,9 @@ export function CompletedSidebar(p: CompletedSidebarProps) {
       <CollapsibleSidebar
         data={p.data}
         artifacts={p.artifacts}
+        clips={p.clips ?? []}
+        projectTitle={p.data.title}
+        stitchUrl={p.data.stitch_url}
         transcriptOpen={p.transcriptOpen}
         downloadsOpen={p.downloadsOpen}
         howItRanOpen={p.howItRanOpen}

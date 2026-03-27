@@ -56,6 +56,7 @@ export interface ProjectDataResult {
   ) => Promise<void>;
   handleExportClip: (clipId: string) => Promise<void>;
   handleExportBatch: () => Promise<void>;
+  handleStitchExport: () => Promise<void>;
   togglePlay: () => void;
   seekToClip: (clip: Clip) => void;
   skipPrev: () => void;

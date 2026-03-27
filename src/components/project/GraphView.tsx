@@ -43,6 +43,39 @@ function ClipTimingInputs({
   videoRef: React.RefObject<HTMLVideoElement | null>;
   onClipAction: GraphViewProps["onClipAction"];
 }) {
+  const [startVal, setStartVal] = React.useState(clip.start_sec.toFixed(1));
+  const [endVal, setEndVal] = React.useState(clip.end_sec.toFixed(1));
+
+  // Sync if clip prop changes from outside (e.g. after DB round-trip)
+  React.useEffect(() => {
+    setStartVal(clip.start_sec.toFixed(1));
+  }, [clip.start_sec]);
+  React.useEffect(() => {
+    setEndVal(clip.end_sec.toFixed(1));
+  }, [clip.end_sec]);
+
+  function commitStart(raw: string) {
+    const v = parseFloat(raw);
+    if (isNaN(v)) {
+      setStartVal(clip.start_sec.toFixed(1));
+      return;
+    }
+    const clamped = Math.min(v, clip.end_sec - 0.5);
+    setStartVal(clamped.toFixed(1));
+    if (clamped !== clip.start_sec) onClipAction(clip.id, { start_sec: clamped });
+  }
+
+  function commitEnd(raw: string) {
+    const v = parseFloat(raw);
+    if (isNaN(v)) {
+      setEndVal(clip.end_sec.toFixed(1));
+      return;
+    }
+    const clamped = Math.max(v, clip.start_sec + 0.5);
+    setEndVal(clamped.toFixed(1));
+    if (clamped !== clip.end_sec) onClipAction(clip.id, { end_sec: clamped });
+  }
+
   return (
     <div className="flex items-center gap-2 ml-5">
       <label className="text-xs text-gray-500 w-8 shrink-0">Start</label>
@@ -50,14 +83,15 @@ function ClipTimingInputs({
         type="number"
         step="0.1"
         min="0"
-        defaultValue={clip.start_sec.toFixed(1)}
-        onBlur={(e) => {
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && v !== clip.start_sec) onClipAction(clip.id, { start_sec: v });
-        }}
+        value={startVal}
         onChange={(e) => {
+          setStartVal(e.target.value);
           const v = parseFloat(e.target.value);
           if (!isNaN(v) && videoRef.current) videoRef.current.currentTime = v;
+        }}
+        onBlur={(e) => commitStart(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitStart((e.target as HTMLInputElement).value);
         }}
         className="w-20 bg-gray-700 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 font-mono focus:border-violet-500 outline-none"
       />
@@ -66,10 +100,13 @@ function ClipTimingInputs({
         type="number"
         step="0.1"
         min="0"
-        defaultValue={clip.end_sec.toFixed(1)}
-        onBlur={(e) => {
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && v !== clip.end_sec) onClipAction(clip.id, { end_sec: v });
+        value={endVal}
+        onChange={(e) => {
+          setEndVal(e.target.value);
+        }}
+        onBlur={(e) => commitEnd(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commitEnd((e.target as HTMLInputElement).value);
         }}
         className="w-20 bg-gray-700 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 font-mono focus:border-violet-500 outline-none"
       />
@@ -302,6 +339,12 @@ export function GraphView({
               return next;
             })
           }
+          onSelectAll={(ids) => onSetSelectedClipIds(new Set(ids))}
+          onKeepAll={() => {
+            sortedClips.forEach((clip) => {
+              if (clip.status !== "approved") onClipAction(clip.id, { status: "approved" });
+            });
+          }}
         />
       </div>
       <TopicLabels

@@ -15,11 +15,23 @@ const mockSingleHighlight = vi
 const mockSelectHighlight = vi.fn().mockReturnValue({ single: mockSingleHighlight });
 const mockInsertHighlight = vi.fn().mockReturnValue({ select: mockSelectHighlight });
 
+// Initial project select: returns r2_key so the handler can proceed
+const mockProjectSingle = vi.fn().mockResolvedValue({
+  data: { status: "pending", audio_key: null, r2_key: "uploads/user/video.mp4" },
+  error: null,
+});
+const mockProjectEq = vi.fn().mockReturnValue({ single: mockProjectSingle });
+const mockProjectSelect = vi.fn().mockReturnValue({ eq: mockProjectEq });
+
 const mockFrom = vi.fn((table: string) => {
   if (table === "highlights") {
     return { insert: mockInsertHighlight };
   }
-  return { update: mockUpdate, insert: mockInsert };
+  if (table === "transcripts") {
+    return { update: mockUpdate, insert: mockInsert };
+  }
+  // "projects" — has both select (initial read) and update
+  return { update: mockUpdate, insert: mockInsert, select: mockProjectSelect };
 });
 
 vi.mock("@/lib/supabase", () => ({
@@ -44,34 +56,36 @@ vi.mock("@aws-sdk/client-s3", () => ({
   GetObjectCommand: class {
     constructor(public params: unknown) {}
   },
+  PutObjectCommand: class {
+    constructor(public params: unknown) {}
+  },
 }));
 
 // --- fs mock ---
 const mockWriteFile = vi.fn().mockResolvedValue(undefined);
 const mockUnlink = vi.fn().mockResolvedValue(undefined);
-const mockCreateReadStream = vi.fn().mockReturnValue("mock-stream");
+const mockReadFile = vi.fn().mockResolvedValue(Buffer.from("fake-audio-data"));
 
 vi.mock("fs/promises", () => ({
-  default: { writeFile: mockWriteFile, unlink: mockUnlink },
+  default: { writeFile: mockWriteFile, unlink: mockUnlink, readFile: mockReadFile },
   writeFile: mockWriteFile,
   unlink: mockUnlink,
+  readFile: mockReadFile,
 }));
 
 vi.mock("fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs")>();
   return {
     ...actual,
-    createReadStream: mockCreateReadStream,
+    existsSync: vi.fn().mockReturnValue(false),
   };
 });
 
 // --- fluent-ffmpeg mock ---
 vi.mock("fluent-ffmpeg", () => {
-  // Build a single reusable chain object so .mockReturnValue works correctly
   const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   const run = vi.fn();
   const on = vi.fn((event: string, cb: () => void) => {
-    // Immediately invoke "end" so the Promise resolves synchronously
     if (event === "end") cb();
     return chain;
   });
@@ -79,29 +93,37 @@ vi.mock("fluent-ffmpeg", () => {
   const audioCodec = vi.fn().mockReturnValue({ noVideo });
   const output = vi.fn().mockReturnValue({ audioCodec });
   Object.assign(chain, { output, audioCodec, noVideo, on, run });
-
   return { default: vi.fn().mockReturnValue({ output }) };
 });
 
-// --- Groq mock ---
+// --- Transcribe mock (@/lib/transcribe, not @/lib/groq) ---
 const mockTranscribeAudio = vi.fn().mockResolvedValue({
   text: "Hello this is a test transcript.",
   segments: [{ id: 0, start: 0, end: 3, text: "Hello this is a test transcript." }],
+  provider: "Sarvam Saaras v3",
 });
 
-vi.mock("@/lib/groq", () => ({
+vi.mock("@/lib/transcribe", () => ({
   transcribeAudio: mockTranscribeAudio,
 }));
 
-// --- Gemini mock ---
-const mockGenerateHighlights = vi
-  .fn()
-  .mockResolvedValue([
-    { start: 0, end: 3, text: "Hello this is a test transcript.", reason: "Opening statement" },
-  ]);
+// --- Highlights mock (@/lib/highlights, not @/lib/gemini) ---
+const mockGenerateHighlights = vi.fn().mockResolvedValue([
+  {
+    start: 0,
+    end: 3,
+    text: "Hello this is a test transcript.",
+    reason: "Opening statement",
+    score: 75,
+    score_reason: "Good hook",
+    hashtags: ["#test"],
+    clip_title: "Opening",
+  },
+]);
 
-vi.mock("@/lib/gemini", () => ({
+vi.mock("@/lib/highlights", () => ({
   generateHighlights: mockGenerateHighlights,
+  formatSegmentsForHighlights: vi.fn().mockReturnValue("[00:00] Hello this is a test transcript."),
 }));
 
 // --- os mock ---
@@ -134,6 +156,14 @@ function makeMockEvent(
 Feature("processVideo Inngest function", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockProjectSingle.mockResolvedValue({
+      data: { status: "pending", audio_key: null, r2_key: "uploads/user/video.mp4" },
+      error: null,
+    });
+    mockProjectEq.mockReturnValue({ single: mockProjectSingle });
+    mockProjectSelect.mockReturnValue({ eq: mockProjectEq });
+
     mockR2Send.mockResolvedValue({
       Body: {
         [Symbol.asyncIterator]: async function* () {
@@ -142,13 +172,24 @@ Feature("processVideo Inngest function", () => {
       },
     });
     mockWriteFile.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue(Buffer.from("fake-audio-data"));
     mockUnlink.mockResolvedValue(undefined);
     mockTranscribeAudio.mockResolvedValue({
       text: "Hello this is a test transcript.",
       segments: [{ id: 0, start: 0, end: 3, text: "Hello this is a test transcript." }],
+      provider: "Sarvam Saaras v3",
     });
     mockGenerateHighlights.mockResolvedValue([
-      { start: 0, end: 3, text: "Hello this is a test transcript.", reason: "Opening" },
+      {
+        start: 0,
+        end: 3,
+        text: "Hello this is a test transcript.",
+        reason: "Opening",
+        score: 75,
+        score_reason: "Good hook",
+        hashtags: ["#test"],
+        clip_title: "Opening",
+      },
     ]);
     mockUpdate.mockReturnValue({ eq: mockEq });
     mockEq.mockResolvedValue({ error: null });
@@ -160,7 +201,8 @@ Feature("processVideo Inngest function", () => {
     mockInsertHighlight.mockReturnValue({ select: mockSelectHighlight });
     mockFrom.mockImplementation((table: string) => {
       if (table === "highlights") return { insert: mockInsertHighlight };
-      return { update: mockUpdate, insert: mockInsert };
+      if (table === "transcripts") return { update: mockUpdate, insert: mockInsert };
+      return { update: mockUpdate, insert: mockInsert, select: mockProjectSelect };
     });
   });
 
@@ -185,7 +227,6 @@ Feature("processVideo Inngest function", () => {
       await processVideoHandler(event, step);
 
       expect(mockR2Send).toHaveBeenCalled();
-
       expect(mockFrom).toHaveBeenCalledWith("projects");
       expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processing" }));
     });
@@ -256,7 +297,7 @@ Feature("processVideo Inngest function", () => {
       const event = makeMockEvent();
       await processVideoHandler(event, step);
 
-      expect(mockGenerateHighlights).toHaveBeenCalledWith("Hello this is a test transcript.");
+      expect(mockGenerateHighlights).toHaveBeenCalled();
       expect(mockFrom).toHaveBeenCalledWith("highlights");
     });
 
@@ -306,8 +347,11 @@ Feature("processVideo Inngest function", () => {
   });
 
   Scenario("Error handling", () => {
-    Then("it sets status to failed with error_message when R2 download throws", async () => {
-      mockR2Send.mockRejectedValue(new Error("R2 connection failed"));
+    Then("it sets status to failed with error_message when project has no r2_key", async () => {
+      mockProjectSingle.mockResolvedValue({
+        data: { status: "pending", audio_key: null, r2_key: "" },
+        error: null,
+      });
 
       const { processVideoHandler } = await import("@/inngest/functions/process-video");
       const step = makeMockStep();

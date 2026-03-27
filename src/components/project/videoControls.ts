@@ -145,12 +145,19 @@ export function makeHandleTimelineClick(
   };
 }
 
+interface DragRefs {
+  timelineRef: React.RefObject<HTMLDivElement | null>;
+  durationRef: React.MutableRefObject<number>;
+  dragStateRef: React.MutableRefObject<{ clipId: string; side: "start" | "end" } | null>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  clipsRef: React.MutableRefObject<Clip[] | null>;
+}
+
 export function makeHandleHandleMouseDown(
-  timelineRef: React.RefObject<HTMLDivElement | null>,
-  durationRef: React.MutableRefObject<number>,
-  dragStateRef: React.MutableRefObject<{ clipId: string; side: "start" | "end" } | null>,
+  refs: DragRefs,
   setClips: React.Dispatch<React.SetStateAction<Clip[] | null>>
 ) {
+  const { timelineRef, durationRef, dragStateRef, videoRef, clipsRef } = refs;
   return function handleHandleMouseDown(
     e: React.MouseEvent,
     clipId: string,
@@ -160,20 +167,22 @@ export function makeHandleHandleMouseDown(
     e.preventDefault();
     dragStateRef.current = { clipId, side };
 
+    // Track drag value via closure variable — no state updates during mousemove
+    let dragValue = 0;
+    let lastSeekMs = 0;
+
     function onMouseMove(ev: MouseEvent) {
       if (!dragStateRef.current || !timelineRef.current || durationRef.current === 0) return;
       const rect = timelineRef.current.getBoundingClientRect();
-      const t =
+      dragValue =
         Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width)) * durationRef.current;
-      setClips((prev) => {
-        if (!prev) return prev;
-        return prev.map((c) => {
-          if (c.id !== dragStateRef.current!.clipId) return c;
-          return dragStateRef.current!.side === "start"
-            ? { ...c, start_sec: Math.min(t, c.end_sec - 0.5) }
-            : { ...c, end_sec: Math.max(t, c.start_sec + 0.5) };
-        });
-      });
+
+      // Debounced video seek: at most once every 100ms
+      const now = Date.now();
+      if (videoRef.current && now - lastSeekMs >= 100) {
+        videoRef.current.currentTime = dragValue;
+        lastSeekMs = now;
+      }
     }
 
     function onMouseUp() {
@@ -182,19 +191,33 @@ export function makeHandleHandleMouseDown(
       dragStateRef.current = null;
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+
+      // Clamp against the clip's opposing boundary
+      const currentClip = clipsRef.current?.find((c) => c.id === cId);
+      const patchValue = currentClip
+        ? dragSide === "start"
+          ? Math.min(dragValue, currentClip.end_sec - 0.5)
+          : Math.max(dragValue, currentClip.start_sec + 0.5)
+        : dragValue;
+
+      // Commit to state once on mouseup
       setClips((prev) => {
-        const clip = prev?.find((c) => c.id === cId);
-        if (clip) {
-          const update =
-            dragSide === "start" ? { start_sec: clip.start_sec } : { end_sec: clip.end_sec };
-          fetch(`/api/clips/${cId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(update),
-          }).catch(() => toast.error("Failed to save clip timing"));
-        }
-        return prev;
+        if (!prev) return prev;
+        return prev.map((c) => {
+          if (c.id !== cId) return c;
+          return dragSide === "start"
+            ? { ...c, start_sec: patchValue }
+            : { ...c, end_sec: patchValue };
+        });
       });
+
+      // Single PATCH on mouseup
+      const update = dragSide === "start" ? { start_sec: patchValue } : { end_sec: patchValue };
+      fetch(`/api/clips/${cId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(update),
+      }).catch(() => toast.error("Failed to save clip timing"));
     }
 
     window.addEventListener("mousemove", onMouseMove);

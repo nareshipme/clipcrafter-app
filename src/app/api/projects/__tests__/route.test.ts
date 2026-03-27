@@ -4,6 +4,9 @@ import { Feature, Scenario } from "@/test/bdd";
 const mockAuth = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 
+const mockGetSupabaseUserId = vi.fn().mockResolvedValue("user_123");
+vi.mock("@/lib/user", () => ({ getSupabaseUserId: mockGetSupabaseUserId }));
+
 const mockFrom = vi.fn();
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: mockFrom },

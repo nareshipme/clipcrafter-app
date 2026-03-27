@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { use, useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useProjectData } from "@/components/project/useProjectData";
 import { ProcessingStatus } from "@/components/project/ProcessingStatus";
 import { PlayerSection } from "@/components/project/PlayerSection";
@@ -124,6 +125,119 @@ function ProjectHeader({ data, onDelete }: { data: ProjectData["data"]; onDelete
   );
 }
 
+const EDIT_PENCIL_PATH =
+  "M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 16H9v-3z";
+
+function InlineTitleInput({
+  editValue,
+  inputRef,
+  onChange,
+  onBlur,
+  onKeyDown,
+}: {
+  editValue: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+}) {
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={editValue}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+      className="text-xs text-white bg-gray-800 border border-violet-500 rounded px-2 py-0.5 w-48 focus:outline-none"
+    />
+  );
+}
+
+/** Inline-editable project title */
+function InlineTitle({
+  projectId,
+  title,
+  onSave,
+}: {
+  projectId: string;
+  title: string;
+  onSave: (newTitle: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEditing() {
+    setEditValue(title);
+    setEditing(true);
+  }
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  async function commit() {
+    const trimmed = editValue.trim();
+    if (!trimmed || trimmed === title) {
+      setEditing(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (res.ok) {
+        onSave(trimmed);
+      } else {
+        toast.error("Failed to update project name");
+      }
+    } catch {
+      toast.error("Network error — could not save title");
+    }
+    setEditing(false);
+  }
+
+  const displayTitle = title.length > 30 ? title.slice(0, 30) + "…" : title;
+
+  if (editing) {
+    return (
+      <InlineTitleInput
+        editValue={editValue}
+        inputRef={inputRef}
+        onChange={setEditValue}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setEditing(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEditing}
+      className="group flex items-center gap-1 text-left min-w-0"
+    >
+      <span className="text-gray-300 hover:text-white truncate transition-colors">
+        {displayTitle}
+      </span>
+      <svg
+        className="w-3 h-3 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={EDIT_PENCIL_PATH} />
+      </svg>
+    </button>
+  );
+}
+
 function getCaptionText(p: ProjectData): string | null {
   if (!p.showCaptions || !p.data?.transcript?.segments) return null;
   const seg = (p.data.transcript.segments as Segment[]).find(
@@ -205,6 +319,7 @@ function CompletedSidebarWrapper({
       onToggleTranscript={() => p.setTranscriptOpen((o) => !o)}
       onToggleDownloads={() => p.setDownloadsOpen((o) => !o)}
       onToggleHowItRan={() => p.setHowItRanOpen((o) => !o)}
+      onStitchExport={p.handleStitchExport}
     />
   );
 }
@@ -253,9 +368,22 @@ export function ProjectDetailContent({ id }: { id: string }) {
   const { sortedClips, selectedClip, computedGraph, captionText, isProcessing, isCompleted } =
     useDerivedState(p);
 
+  // titleOverride: null = show API title, string = show user-edited title
+  const [titleOverride, setTitleOverride] = useState<string | null>(null);
+  const title = titleOverride ?? p.data?.title ?? "";
+
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       <ProjectHeader data={p.data} onDelete={p.handleDelete} />
+      {p.data && (
+        <nav className="px-4 sm:px-6 py-2 border-b border-gray-800 text-xs text-gray-500 flex items-center gap-1 min-w-0">
+          <Link href="/dashboard" className="hover:text-gray-300 transition-colors shrink-0">
+            ← Dashboard
+          </Link>
+          <span className="mx-1 shrink-0">/</span>
+          <InlineTitle projectId={id} title={title} onSave={setTitleOverride} />
+        </nav>
+      )}
       <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         <aside className="w-full lg:w-[420px] shrink-0 border-r border-gray-800 overflow-y-auto">
           <div className="px-4 sm:px-5 py-5 flex flex-col gap-5">

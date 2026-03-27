@@ -30,12 +30,14 @@ export interface ProcessingLogEntry {
 
 export interface StatusData {
   id: string;
+  title: string;
   status: ProjectStatus;
   error_message: string | null;
   completed_at: string | null;
   processing_log: ProcessingLogEntry[];
   transcript: { id: string; segments: Segment[] } | null;
   highlights: { id: string; segments: unknown[] } | null;
+  stitch_url?: string | null;
 }
 
 export interface Clip {

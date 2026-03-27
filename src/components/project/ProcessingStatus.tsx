@@ -1,13 +1,15 @@
 "use client";
 
+import { useState, useEffect, Fragment } from "react";
 import { ProjectStatus } from "./types";
+import { getLoadingMessage } from "@/lib/loadingMessages";
 
 const STAGES = [
-  { label: "Downloading video" },
-  { label: "Extracting audio" },
-  { label: "Transcribing" },
-  { label: "Generating highlights" },
-  { label: "Finalizing" },
+  { label: "Downloading video", short: "Download" },
+  { label: "Extracting audio", short: "Audio" },
+  { label: "Transcribing", short: "Transcribe" },
+  { label: "Generating highlights", short: "Clips" },
+  { label: "Finalizing", short: "Done" },
 ] as const;
 
 function getActiveStep(status: ProjectStatus): number {
@@ -30,68 +32,42 @@ function ProcessingStepper({ status }: ProcessingStepperProps) {
       data-testid="processing-stepper"
       className="bg-gray-900 border border-gray-800 rounded-xl p-5"
     >
-      <h2 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wide">
-        Processing stages
-      </h2>
-      <ol className="flex flex-col gap-3">
+      <div className="flex items-start w-full">
         {STAGES.map((stage, i) => {
           const isDone = i < activeStep;
           const isActive = i === activeStep;
+          const isLast = i === STAGES.length - 1;
+          const dotColor = isDone
+            ? "bg-violet-500"
+            : isActive
+              ? "bg-yellow-400 animate-pulse"
+              : "bg-gray-700";
+          const labelColor = isDone
+            ? "text-violet-400"
+            : isActive
+              ? "text-yellow-400 font-medium"
+              : "text-gray-500";
           return (
-            <li key={stage.label} className="flex items-center gap-3">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                  isDone
-                    ? "bg-green-500 text-white"
-                    : isActive
-                      ? "bg-yellow-500 text-white"
-                      : "bg-gray-800 text-gray-500"
-                }`}
-              >
-                {isDone ? (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
+            <Fragment key={stage.label}>
+              <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                <div className={`w-3 h-3 rounded-full ${dotColor}`} />
+                <div className="relative text-center leading-tight">
+                  <span aria-hidden="true" className={`text-[10px] ${labelColor}`}>
+                    {stage.short}
+                  </span>
+                  {/* Full labels kept for screen readers and tests */}
+                  <span className={`sr-only ${labelColor}`}>{stage.label}</span>
+                </div>
               </div>
-              <span
-                className={`text-sm ${
-                  isDone
-                    ? "text-green-400"
-                    : isActive
-                      ? "text-yellow-400 font-medium"
-                      : "text-gray-500"
-                }`}
-              >
-                {stage.label}
-              </span>
-              {isActive && (
-                <svg
-                  className="w-4 h-4 text-yellow-400 animate-spin ml-auto"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                >
-                  <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
-                  <path
-                    strokeLinecap="round"
-                    d="M4 12a8 8 0 018-8"
-                    strokeWidth="4"
-                    className="opacity-75"
-                  />
-                </svg>
+              {!isLast && (
+                <div
+                  className={`flex-1 h-px mt-1.5 mx-0.5 self-start ${isDone ? "bg-violet-500" : "bg-gray-700"}`}
+                />
               )}
-            </li>
+            </Fragment>
           );
         })}
-      </ol>
+      </div>
     </div>
   );
 }
@@ -125,14 +101,33 @@ export interface ProcessingStatusProps {
 
 export function ProcessingStatus({ status, errorMessage, onRetry }: ProcessingStatusProps) {
   const isProcessing = !["completed", "failed"].includes(status) && status !== "pending";
+  const [msgIdx, setMsgIdx] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setMsgIdx((i) => i + 1), 3000);
+    return () => clearInterval(id);
+  }, [status]);
+
+  const message = getLoadingMessage(status, msgIdx);
 
   return (
     <>
-      {isProcessing && <ProcessingStepper status={status} />}
+      {isProcessing && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-gray-300 font-medium transition-all duration-500">
+              {message}
+            </p>
+            <p className="text-xs text-gray-600">Usually takes 2–3 min for a 30 min video</p>
+          </div>
+          <ProcessingStepper status={status} />
+        </div>
+      )}
       {status === "failed" && <FailedState errorMessage={errorMessage} onRetry={onRetry} />}
       {status === "pending" && (
-        <div className="text-gray-400 text-sm">
-          Project is queued and will begin processing shortly.
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-gray-400 transition-all duration-500">{message}</p>
+          <p className="text-xs text-gray-600">Usually takes 2–3 min for a 30 min video</p>
         </div>
       )}
     </>

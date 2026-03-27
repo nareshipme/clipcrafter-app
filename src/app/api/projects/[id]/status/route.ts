@@ -43,7 +43,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: project, error } = await supabaseAdmin
     .from("projects")
-    .select("id, user_id, status, error_message, completed_at, processing_log")
+    .select("id, user_id, title, status, error_message, completed_at, processing_log, stitch_url")
     .eq("id", id)
     .single();
 
@@ -59,16 +59,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       ? await fetchTranscriptAndHighlights(id)
       : { transcript: null, highlights: null };
 
-  return Response.json(
-    {
-      id: project.id,
-      status: project.status,
-      error_message: project.error_message ?? null,
-      completed_at: project.completed_at ?? null,
-      processing_log: project.processing_log ?? [],
-      transcript,
-      highlights,
-    },
-    { status: 200 }
-  );
+  return Response.json(buildStatusResponse(project, transcript, highlights), { status: 200 });
+}
+
+type ProjectRow = {
+  id: string;
+  title: string | null;
+  status: string;
+  error_message: string | null;
+  completed_at: string | null;
+  processing_log: unknown[];
+  stitch_url?: string | null;
+};
+
+function buildStatusResponse(
+  project: ProjectRow,
+  transcript: { id: string; segments: unknown[] } | null,
+  highlights: { id: string; segments: unknown[] } | null
+) {
+  return {
+    id: project.id,
+    title: project.title ?? "",
+    status: project.status,
+    error_message: project.error_message ?? null,
+    completed_at: project.completed_at ?? null,
+    processing_log: project.processing_log ?? [],
+    transcript,
+    highlights,
+    stitch_url: project.stitch_url ?? null,
+  };
 }

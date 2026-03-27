@@ -276,3 +276,46 @@ All new features and bug fixes must ship with tests. No exceptions.
 ### No lint disabling:
 ESLint warnings must be fixed at source. `eslint-disable` comments are banned.
 Zero warnings is the target — warnings are treated as errors for new code.
+
+---
+
+## 14. Semantic HTML & Accessibility
+
+Use semantic HTML elements over generic `<div>`/`<span>` wherever meaning can be expressed.
+
+### Element usage guide
+
+| Instead of | Use |
+|------------|-----|
+| `<div>` for page sections | `<main>`, `<section>`, `<article>`, `<aside>`, `<nav>`, `<header>`, `<footer>` |
+| `<div>` for lists | `<ul>`, `<ol>`, `<li>` |
+| `<div onClick>` for buttons | `<button type="button">` |
+| `<div>` for forms | `<form>`, `<fieldset>`, `<legend>` |
+| `<span>` for labels | `<label htmlFor="...">` |
+| `<div>` for headings | `<h1>`–`<h6>` (one `<h1>` per page) |
+| `<b>`, `<i>` for meaning | `<strong>`, `<em>` |
+| `<div>` for tables | `<table>`, `<thead>`, `<tbody>`, `<th scope="...">` |
+
+### Required attributes
+- All `<img>` must have `alt` (empty string `""` for decorative images)
+- All `<button>` must have accessible text or `aria-label`
+- All form inputs must have a `<label>` or `aria-label`
+- Interactive elements must be keyboard-accessible (no click-only divs)
+- Use `aria-*` attributes only when no semantic element exists
+
+### Landmarks (every page must have)
+- One `<main>` wrapping primary content
+- `<nav>` for navigation menus
+- `<header>` / `<footer>` at page level
+
+### In React/Next.js specifically
+- Page components should return `<main>` not `<div>`
+- Modal dialogs should use `<dialog>` or have `role="dialog"` + `aria-modal="true"`
+- Status messages should use `role="status"` or `role="alert"` (for errors)
+- Loading states should use `aria-live="polite"` or `aria-busy="true"`
+
+### Why it matters
+- Screen readers rely on semantic structure
+- Search engines rank semantic pages better
+- Reduces reliance on CSS classes for meaning
+- Smaller, cleaner component markup

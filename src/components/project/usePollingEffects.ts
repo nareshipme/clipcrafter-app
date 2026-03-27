@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { StatusData, Clip, TERMINAL_STATUSES } from "./types";
+
+// Max time to poll before declaring a stall (10 minutes)
+const STATUS_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+// Max time to poll clips generation before giving up (5 minutes)
+const CLIPS_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface StatusPollingArgs {
   data: StatusData | null;
@@ -9,12 +14,31 @@ interface StatusPollingArgs {
 }
 
 export function useStatusPolling({ data, fetchStatus }: StatusPollingArgs) {
+  const pollStartRef = useRef<number | null>(null);
+
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
   useEffect(() => {
-    if (!data || TERMINAL_STATUSES.includes(data.status)) return;
-    const t = setInterval(fetchStatus, 3000);
+    if (!data || TERMINAL_STATUSES.includes(data.status)) {
+      pollStartRef.current = null;
+      return;
+    }
+    // Record when we started polling this non-terminal status
+    if (pollStartRef.current === null) {
+      pollStartRef.current = Date.now();
+    }
+    const t = setInterval(() => {
+      const elapsed = Date.now() - (pollStartRef.current ?? Date.now());
+      if (elapsed >= STATUS_POLL_TIMEOUT_MS) {
+        // Stall detected — stop polling, fetchStatus one last time to surface latest state
+        clearInterval(t);
+        fetchStatus();
+        return;
+      }
+      fetchStatus();
+    }, 3000);
     return () => clearInterval(t);
   }, [data, fetchStatus]);
 }
@@ -48,12 +72,20 @@ export function useClipsPolling({
 
   useEffect(() => {
     if (clipsStatus !== "generating") return;
+    const startTime = Date.now();
     const t = setInterval(async () => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= CLIPS_POLL_TIMEOUT_MS) {
+        // Clips generation stalled — stop spinner, surface as error
+        clearInterval(t);
+        setClipsStatus("error");
+        return;
+      }
       const status = await fetchClips();
       if (status !== "generating") clearInterval(t);
     }, 3000);
     return () => clearInterval(t);
-  }, [clipsStatus, fetchClips]);
+  }, [clipsStatus, fetchClips, setClipsStatus]);
 }
 
 export function useAutoSelectClips(

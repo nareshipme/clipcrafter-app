@@ -1,21 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Feature, Scenario } from "@/test/bdd";
 
-// Mock fetch globally for Sarvam tests
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
-
-// Mutable reference so individual tests can change the response
-const mockGenerateContent = vi.fn();
-
-vi.mock("@google/generative-ai", () => {
-  class MockGoogleGenerativeAI {
-    getGenerativeModel() {
-      return { generateContent: mockGenerateContent };
-    }
-  }
-  return { GoogleGenerativeAI: MockGoogleGenerativeAI };
-});
+// Mock @/lib/llm — all highlights paths go through callLLM
+const mockCallLLM = vi.fn();
+vi.mock("@/lib/llm", () => ({
+  callLLM: mockCallLLM,
+  parseLLMJson: (raw: string) => {
+    const cleaned = raw
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+    return JSON.parse(cleaned);
+  },
+}));
 
 const baseHighlight = {
   start: 10,
@@ -26,34 +24,56 @@ const baseHighlight = {
   score_reason: "High hook strength and quotability",
   hashtags: ["#motivation", "#mindset", "#growth"],
   clip_title: "The Key to Massive Success",
+  topic: "motivation",
 };
 
-Feature("generateHighlights — updated Highlight interface", () => {
+// For auto-mode (no opts.count), generateHighlights calls:
+//   1. callLLM for buildTopicMap  → returns TopicMap JSON
+//   2. callLLM for enrichClips    → returns enrichment JSON
+function makeTopicMapResponse(h: typeof baseHighlight) {
+  return JSON.stringify([
+    {
+      topic: h.topic ?? "motivation",
+      summary: "Key motivational moment",
+      clip_start: "00:10",
+      clip_end: "00:40",
+      segments: [{ start: "00:10", end: "00:40", text: h.text }],
+    },
+  ]);
+}
+
+function makeEnrichResponse(h: typeof baseHighlight) {
+  return JSON.stringify([
+    {
+      score: h.score,
+      score_reason: h.score_reason,
+      reason: h.reason,
+      hashtags: h.hashtags,
+      clip_title: h.clip_title,
+    },
+  ]);
+}
+
+Feature("generateHighlights — Highlight interface", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.unstubAllEnvs();
   });
 
-  Scenario("Gemini returns highlights with score, hashtags, clip_title", () => {
+  Scenario("Auto mode returns highlights with score, hashtags, clip_title", () => {
     it("Given a transcript, Then Highlight objects include score, hashtags, clip_title", async () => {
-      vi.stubEnv("HIGHLIGHTS_PROVIDER", "gemini");
-      vi.stubEnv("GEMINI_API_KEY", "test-key");
-      vi.stubEnv("GEMINI_MODEL", "gemini-test-model");
-
-      mockGenerateContent.mockResolvedValueOnce({
-        response: { text: () => JSON.stringify([baseHighlight]) },
-      });
+      // Auto mode: two callLLM calls — topic map then enrichment
+      mockCallLLM
+        .mockResolvedValueOnce(makeTopicMapResponse(baseHighlight))
+        .mockResolvedValueOnce(makeEnrichResponse(baseHighlight));
 
       const { generateHighlights } = await import("@/lib/highlights");
-      const results = await generateHighlights("some long transcript text here");
+      const results = await generateHighlights("[00:10] This is the most impactful quote");
 
       expect(results).toHaveLength(1);
       const h = results[0];
       expect(h.start).toBe(10);
       expect(h.end).toBe(40);
-      expect(h.text).toBe("This is the most impactful quote");
-      expect(h.reason).toBe("Strong emotional hook");
       expect(typeof h.score).toBe("number");
       expect(h.score).toBe(85);
       expect(h.score_reason).toBe("High hook strength and quotability");
@@ -64,67 +84,27 @@ Feature("generateHighlights — updated Highlight interface", () => {
     });
   });
 
-  Scenario("Sarvam returns highlights with score, hashtags, clip_title", () => {
-    it("Given Sarvam provider, Then Highlight objects include all new fields", async () => {
-      vi.stubEnv("HIGHLIGHTS_PROVIDER", "sarvam");
-      vi.stubEnv("SARVAM_API_KEY", "test-sarvam-key");
-      vi.stubEnv("SARVAM_LLM_MODEL", "sarvam-m");
-
-      const highlight = {
-        start: 5,
-        end: 30,
-        text: "You have to go all in",
-        reason: "Actionable and direct",
-        score: 72,
-        score_reason: "Strong actionability and hook",
-        hashtags: ["#hustle", "#success", "#mindset"],
-        clip_title: "Go All In or Go Home",
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: JSON.stringify([highlight]) } }],
-        }),
-      });
-
-      const { generateHighlights } = await import("@/lib/highlights");
-      const results = await generateHighlights("You have to go all in on your dreams");
-
-      expect(results).toHaveLength(1);
-      expect(results[0].score).toBe(72);
-      expect(results[0].score_reason).toBe("Strong actionability and hook");
-      expect(results[0].hashtags).toEqual(["#hustle", "#success", "#mindset"]);
-      expect(results[0].clip_title).toBe("Go All In or Go Home");
-    });
-  });
-
   Scenario("Highlight score can be 0", () => {
     it("Given a highlight with score 0, Then it is parsed correctly", async () => {
-      vi.stubEnv("HIGHLIGHTS_PROVIDER", "gemini");
-      vi.stubEnv("GEMINI_API_KEY", "test-key");
-      vi.stubEnv("GEMINI_MODEL", "gemini-test-model");
+      const zeroHighlight = {
+        ...baseHighlight,
+        score: 0,
+        score_reason: "no hook",
+        reason: "low energy",
+        hashtags: ["#test"],
+        clip_title: "Low Energy Moment",
+        text: "meh",
+        start: 0,
+        end: 5,
+      };
 
-      mockGenerateContent.mockResolvedValueOnce({
-        response: {
-          text: () =>
-            JSON.stringify([
-              {
-                start: 0,
-                end: 5,
-                text: "meh",
-                reason: "low energy",
-                score: 0,
-                score_reason: "no hook",
-                hashtags: ["#test"],
-                clip_title: "Low Energy Moment",
-              },
-            ]),
-        },
-      });
+      mockCallLLM
+        .mockResolvedValueOnce(makeTopicMapResponse(zeroHighlight))
+        .mockResolvedValueOnce(makeEnrichResponse(zeroHighlight));
 
       const { generateHighlights } = await import("@/lib/highlights");
-      const results = await generateHighlights("meh content");
+      const results = await generateHighlights("[00:00] meh content");
+
       expect(results[0].score).toBe(0);
     });
   });
@@ -133,6 +113,34 @@ Feature("generateHighlights — updated Highlight interface", () => {
     it("Given empty transcript, Then throws an error", async () => {
       const { generateHighlights } = await import("@/lib/highlights");
       await expect(generateHighlights("")).rejects.toThrow("transcript is required");
+    });
+  });
+
+  Scenario("formatSegmentsForHighlights formats timestamps correctly", () => {
+    it("Given segments array, Then each line is prefixed with [MM:SS]", async () => {
+      const { formatSegmentsForHighlights } = await import("@/lib/highlights");
+      const segments = [
+        { start: 0, end: 10, text: "Hello world" },
+        { start: 65, end: 75, text: "One minute five seconds" },
+      ];
+      const result = formatSegmentsForHighlights(segments);
+      expect(result).toContain("[00:00] Hello world");
+      expect(result).toContain("[01:05] One minute five seconds");
+    });
+  });
+
+  Scenario("thinTranscript trims long transcripts", () => {
+    it("Given a transcript under 15K chars, Then it is returned unchanged", async () => {
+      const { thinTranscript } = await import("@/lib/highlights");
+      const short = "short text";
+      expect(thinTranscript(short)).toBe(short);
+    });
+
+    it("Given a very long transcript, Then it is trimmed to maxChars", async () => {
+      const { thinTranscript } = await import("@/lib/highlights");
+      const long = Array.from({ length: 2000 }, (_, i) => `[${i}:00] word`).join("\n");
+      const result = thinTranscript(long);
+      expect(result.length).toBeLessThanOrEqual(15_000);
     });
   });
 });

@@ -9,6 +9,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { inngest } from "@/lib/inngest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
+import { isProcessingAllowed, incrementUsageSeconds } from "@/lib/billing";
 import { transcribeAudio } from "@/lib/transcribe";
 import { generateHighlights, formatSegmentsForHighlights } from "@/lib/highlights";
 
@@ -191,6 +192,16 @@ export async function processVideoHandler(
 ): Promise<Record<string, unknown>> {
   const { projectId } = event.data;
 
+  // Check usage limit before any processing
+  const check = await step.run("check-usage-limit", () => isProcessingAllowed(event.data.userId));
+  if (!check.allowed) {
+    await supabaseAdmin
+      .from("projects")
+      .update({ status: "failed", error_message: check.reason })
+      .eq("id", projectId);
+    return { status: "blocked", reason: check.reason };
+  }
+
   // Use projectId for stable paths across step re-invocations (Inngest runs each step in a fresh context)
   const videoPath = path.join(os.tmpdir(), `clipcrafter-video-${projectId}.mp4`);
   const audioPath = path.join(os.tmpdir(), `clipcrafter-audio-${projectId}.mp3`);
@@ -359,6 +370,18 @@ export async function processVideoHandler(
         status: "completed",
         completed_at: new Date().toISOString(),
       });
+    });
+
+    // Track usage after successful processing
+    await step.run("track-usage", async () => {
+      const { data: project } = await supabaseAdmin
+        .from("projects")
+        .select("duration_seconds")
+        .eq("id", projectId)
+        .single();
+      const durationSeconds =
+        (project as { duration_seconds?: number } | null)?.duration_seconds ?? 0;
+      await incrementUsageSeconds(event.data.userId, durationSeconds);
     });
 
     return {
