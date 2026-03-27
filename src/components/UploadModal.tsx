@@ -77,12 +77,14 @@ async function submitUploadFile(file: File, ctx: SubmitContext): Promise<void> {
     const processRes = await fetch(`/api/projects/${id}/process`, { method: "POST" });
     if (!processRes.ok) throw new Error("Failed to start processing");
 
-    posthog.capture('project_created', { type: 'upload', title: file.name });
+    posthog.capture("project_created", { type: "upload", title: file.name });
     ctx.setStep("done");
     ctx.router.push(`/dashboard/projects/${id}`);
   } catch (err) {
     console.error("[UploadModal] upload failed:", err);
-    posthog.capture('project_create_failed', { error: err instanceof Error ? err.message : 'Unknown error' });
+    posthog.capture("project_create_failed", {
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
     ctx.setStep("error");
     ctx.setErrorMsg(err instanceof Error ? err.message : "Unknown error");
   }
@@ -107,9 +109,13 @@ async function submitYoutubeUrl(youtubeUrl: string, ctx: SubmitContext): Promise
     const processRes = await fetch(`/api/projects/${id}/process`, { method: "POST" });
     if (!processRes.ok) throw new Error("Failed to start processing");
 
+    posthog.capture("project_created", { type: "youtube", title });
     ctx.setStep("done");
     ctx.router.push(`/dashboard/projects/${id}`);
   } catch (err) {
+    posthog.capture("project_create_failed", {
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
     ctx.setStep("error");
     ctx.setErrorMsg(err instanceof Error ? err.message : "Unknown error");
   }
