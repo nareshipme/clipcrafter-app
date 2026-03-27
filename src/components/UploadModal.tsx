@@ -55,7 +55,7 @@ async function submitUploadFile(file: File, ctx: SubmitContext): Promise<void> {
     });
     const createBody = await createRes.json().catch(() => ({}));
     if (!createRes.ok) throw new Error(createBody.error || "Failed to create project");
-    const { id } = await createRes.json();
+    const { id } = createBody;
 
     ctx.setStep("uploading");
     // Stream raw file to API — server forwards to R2 (no CORS, no 4MB limit)
@@ -105,7 +105,7 @@ async function submitYoutubeUrl(youtubeUrl: string, ctx: SubmitContext): Promise
     });
     const createBody = await createRes.json().catch(() => ({}));
     if (!createRes.ok) throw new Error(createBody.error || "Failed to create project");
-    const { id } = await createRes.json();
+    const { id } = createBody;
 
     ctx.setStep("processing");
     const processRes = await fetch(`/api/projects/${id}/process`, { method: "POST" });
