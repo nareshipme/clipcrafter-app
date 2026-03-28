@@ -4,6 +4,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { Clip } from "./types";
 import type { GraphNode, VideoGraph } from "@/lib/video-graph";
+import { ClipTimingEditor, ClipTopicEditor } from "./ClipEditControls";
 
 const VideoKnowledgeGraph = dynamic(() => import("@/components/VideoKnowledgeGraph"), {
   ssr: false,
@@ -23,7 +24,6 @@ export interface GraphViewProps {
   onSeekToClip: (clip: Clip) => void;
   onSetSelectedClipIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   onUpdateTopicLabel: (originalTopic: string, label: string) => void;
-  onSetTopicOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onExportBatch: () => void;
   onSwitchView: (mode: "list" | "graph") => void;
   onClipAction: (
@@ -32,89 +32,6 @@ export interface GraphViewProps {
       Pick<Clip, "status" | "caption_style" | "aspect_ratio" | "start_sec" | "end_sec">
     >
   ) => void;
-}
-
-function ClipTimingInputs({
-  clip,
-  videoRef,
-  onClipAction,
-}: {
-  clip: Clip;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  onClipAction: GraphViewProps["onClipAction"];
-}) {
-  const [startVal, setStartVal] = React.useState(clip.start_sec.toFixed(1));
-  const [endVal, setEndVal] = React.useState(clip.end_sec.toFixed(1));
-
-  // Sync if clip prop changes from outside (e.g. after DB round-trip)
-  React.useEffect(() => {
-    setStartVal(clip.start_sec.toFixed(1));
-  }, [clip.start_sec]);
-  React.useEffect(() => {
-    setEndVal(clip.end_sec.toFixed(1));
-  }, [clip.end_sec]);
-
-  function commitStart(raw: string) {
-    const v = parseFloat(raw);
-    if (isNaN(v)) {
-      setStartVal(clip.start_sec.toFixed(1));
-      return;
-    }
-    const clamped = Math.min(v, clip.end_sec - 0.5);
-    setStartVal(clamped.toFixed(1));
-    if (clamped !== clip.start_sec) onClipAction(clip.id, { start_sec: clamped });
-  }
-
-  function commitEnd(raw: string) {
-    const v = parseFloat(raw);
-    if (isNaN(v)) {
-      setEndVal(clip.end_sec.toFixed(1));
-      return;
-    }
-    const clamped = Math.max(v, clip.start_sec + 0.5);
-    setEndVal(clamped.toFixed(1));
-    if (clamped !== clip.end_sec) onClipAction(clip.id, { end_sec: clamped });
-  }
-
-  return (
-    <div className="flex items-center gap-2 ml-5">
-      <label className="text-xs text-gray-500 w-8 shrink-0">Start</label>
-      <input
-        type="number"
-        step="0.1"
-        min="0"
-        value={startVal}
-        onChange={(e) => {
-          setStartVal(e.target.value);
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && videoRef.current) videoRef.current.currentTime = v;
-        }}
-        onBlur={(e) => commitStart(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitStart((e.target as HTMLInputElement).value);
-        }}
-        className="w-20 bg-gray-700 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 font-mono focus:border-violet-500 outline-none"
-      />
-      <label className="text-xs text-gray-500 w-5 shrink-0">End</label>
-      <input
-        type="number"
-        step="0.1"
-        min="0"
-        value={endVal}
-        onChange={(e) => {
-          setEndVal(e.target.value);
-        }}
-        onBlur={(e) => commitEnd(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitEnd((e.target as HTMLInputElement).value);
-        }}
-        className="w-20 bg-gray-700 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 font-mono focus:border-violet-500 outline-none"
-      />
-      <span className="text-xs text-gray-500 font-mono">
-        {(clip.end_sec - clip.start_sec).toFixed(1)}s
-      </span>
-    </div>
-  );
 }
 
 function GraphClipRow({
@@ -127,6 +44,7 @@ function GraphClipRow({
   onSeekToClip,
   onToggleCheck,
   onClipAction,
+  onUpdateTopicLabel,
 }: {
   clip: Clip;
   isSelected: boolean;
@@ -137,6 +55,7 @@ function GraphClipRow({
   onSeekToClip: (clip: Clip) => void;
   onToggleCheck: (id: string, checked: boolean) => void;
   onClipAction: GraphViewProps["onClipAction"];
+  onUpdateTopicLabel: GraphViewProps["onUpdateTopicLabel"];
 }) {
   const scoreClass =
     clip.score === 0
@@ -172,58 +91,15 @@ function GraphClipRow({
         </span>
       </div>
       {node && (
-        <span className="text-xs text-violet-400 bg-violet-900/40 px-2 py-0.5 rounded-full self-start ml-5">
-          {node.label}
-        </span>
-      )}
-      <ClipTimingInputs clip={clip} videoRef={videoRef} onClipAction={onClipAction} />
-    </div>
-  );
-}
-
-function TopicLabels({
-  computedGraph,
-  topicOverrides,
-  onUpdateTopicLabel,
-  onSetTopicOverrides,
-}: Pick<
-  GraphViewProps,
-  "computedGraph" | "topicOverrides" | "onUpdateTopicLabel" | "onSetTopicOverrides"
->) {
-  return (
-    <div className="flex flex-col gap-2 bg-gray-900 border border-gray-800 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Topics</h3>
-        {Object.keys(topicOverrides).length > 0 && (
-          <button
-            type="button"
-            onClick={() => onSetTopicOverrides({})}
-            className="text-xs text-gray-600 hover:text-yellow-400 transition-colors"
-          >
-            ↺ reset labels
-          </button>
-        )}
-      </div>
-      {computedGraph.nodes.map((node) => (
-        <div key={node.id} className="flex items-center gap-2">
-          <span
-            className="shrink-0 w-2 h-2 rounded-full"
-            style={{
-              background:
-                node.importance >= 70 ? "#7c3aed" : node.importance >= 40 ? "#2563eb" : "#4b5563",
-            }}
+        <div className="self-start ml-5">
+          <ClipTopicEditor
+            topic={node.label}
+            originalTopic={node.summary}
+            onUpdateTopicLabel={onUpdateTopicLabel}
           />
-          <input
-            type="text"
-            value={node.label}
-            onChange={(e) => onUpdateTopicLabel(node.summary, e.target.value)}
-            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded px-2 py-1.5 focus:border-violet-500 outline-none"
-          />
-          <span className="text-xs text-gray-600 w-6 text-right font-mono">
-            {computedGraph.segments.filter((s) => s.topicId === node.id).length}
-          </span>
         </div>
-      ))}
+      )}
+      <ClipTimingEditor clip={clip} videoRef={videoRef} onClipAction={onClipAction} />
     </div>
   );
 }
@@ -238,6 +114,7 @@ function GraphClipList({
   onSeekToClip,
   onSetSelectedClipIds,
   onClipAction,
+  onUpdateTopicLabel,
 }: Pick<
   GraphViewProps,
   | "computedGraph"
@@ -249,6 +126,7 @@ function GraphClipList({
   | "onSeekToClip"
   | "onSetSelectedClipIds"
   | "onClipAction"
+  | "onUpdateTopicLabel"
 >) {
   return (
     <div className="flex flex-col gap-3 bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -294,6 +172,7 @@ function GraphClipList({
               })
             }
             onClipAction={onClipAction}
+            onUpdateTopicLabel={onUpdateTopicLabel}
           />
         );
       })}
@@ -307,13 +186,11 @@ export function GraphView({
   sortedClips,
   selectedClipIds,
   selectedClipId,
-  topicOverrides,
   videoRef,
   onSetSelectedClipId,
   onSeekToClip,
   onSetSelectedClipIds,
   onUpdateTopicLabel,
-  onSetTopicOverrides,
   onExportBatch,
   onSwitchView,
   onClipAction,
@@ -347,12 +224,6 @@ export function GraphView({
           }}
         />
       </div>
-      <TopicLabels
-        computedGraph={computedGraph}
-        topicOverrides={topicOverrides}
-        onUpdateTopicLabel={onUpdateTopicLabel}
-        onSetTopicOverrides={onSetTopicOverrides}
-      />
       <GraphClipList
         computedGraph={computedGraph}
         sortedClips={sortedClips}
@@ -363,6 +234,7 @@ export function GraphView({
         onSeekToClip={onSeekToClip}
         onSetSelectedClipIds={onSetSelectedClipIds}
         onClipAction={onClipAction}
+        onUpdateTopicLabel={onUpdateTopicLabel}
       />
       {selectedClipIds.size > 0 && (
         <button

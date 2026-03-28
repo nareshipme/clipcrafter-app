@@ -240,6 +240,9 @@ export interface ClipListViewProps {
   onOpenDownloads?: () => void;
   onStitchExport?: () => void;
   transcriptSegments?: Segment[];
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  onUpdateTopicLabel?: (original: string, newLabel: string) => void;
+  topicOverrides?: Record<string, string>;
 }
 
 function ClipTabNav({
@@ -376,6 +379,9 @@ function ClipBody(p: ClipBodyProps) {
               onClipAction={p.onClipAction}
               onExportClip={p.onExportClip}
               transcriptSegments={p.transcriptSegments}
+              videoRef={p.videoRef}
+              onUpdateTopicLabel={p.onUpdateTopicLabel}
+              topicOverrides={p.topicOverrides}
             />
           ))}
         {p.activeTab === "skipped" && (

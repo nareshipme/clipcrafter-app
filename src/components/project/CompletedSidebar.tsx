@@ -229,7 +229,6 @@ function ClipViewBody(props: ClipViewProps & { clips: NonNullable<ClipViewProps[
         onSeekToClip={props.onSeekToClip}
         onSetSelectedClipIds={props.onSetSelectedClipIds}
         onUpdateTopicLabel={props.onUpdateTopicLabel}
-        onSetTopicOverrides={props.onSetTopicOverrides}
         onExportBatch={props.onExportBatch}
         onSwitchView={props.onSwitchView}
         onClipAction={props.onClipAction}
@@ -259,6 +258,9 @@ function ClipViewBody(props: ClipViewProps & { clips: NonNullable<ClipViewProps[
         onGenerateClips={props.onGenerateClips}
         onStitchExport={props.onStitchExport}
         transcriptSegments={props.transcriptSegments}
+        videoRef={props.videoRef}
+        onUpdateTopicLabel={props.onUpdateTopicLabel}
+        topicOverrides={props.topicOverrides}
       />
     );
   }

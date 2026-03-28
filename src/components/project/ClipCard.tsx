@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Clip, CaptionStyle, Segment } from "./types";
+import { ClipTimingEditor, ClipTopicEditor } from "./ClipEditControls";
 
 export function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -128,6 +129,9 @@ export interface ClipCardProps {
   ) => void;
   onExportClip: (clipId: string) => void;
   transcriptSegments?: Segment[];
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  onUpdateTopicLabel?: (original: string, newLabel: string) => void;
+  topicOverrides?: Record<string, string>;
 }
 
 function ClipActions({
@@ -252,10 +256,14 @@ export function ClipCard({
   onClipAction,
   onExportClip,
   transcriptSegments,
+  videoRef,
+  onUpdateTopicLabel,
+  topicOverrides,
 }: ClipCardProps) {
   const clipSegments =
     transcriptSegments?.filter((s) => s.end > clip.start_sec && s.start < clip.end_sec) ?? [];
   const dur = clip.duration_sec?.toFixed(1) ?? (clip.end_sec - clip.start_sec).toFixed(1);
+  const displayTopic = topicOverrides?.[clip.topic ?? ""] ?? clip.topic;
   return (
     <div
       onClick={() => {
@@ -273,10 +281,18 @@ export function ClipCard({
         />
       </div>
       {clip.topic && (
-        <div className="mb-2">
-          <span className="text-xs bg-violet-900/50 text-violet-300 border border-violet-700/50 px-2 py-0.5 rounded-full">
-            🏷 {clip.topic}
-          </span>
+        <div className="mb-2" onClick={(e) => e.stopPropagation()}>
+          {onUpdateTopicLabel ? (
+            <ClipTopicEditor
+              topic={displayTopic ?? clip.topic}
+              originalTopic={clip.topic}
+              onUpdateTopicLabel={onUpdateTopicLabel}
+            />
+          ) : (
+            <span className="text-xs bg-violet-900/50 text-violet-300 border border-violet-700/50 px-2 py-0.5 rounded-full">
+              🏷 {displayTopic}
+            </span>
+          )}
         </div>
       )}
       <div className="flex items-start gap-2 mb-2">
@@ -285,12 +301,18 @@ export function ClipCard({
           {clip.clip_title ?? clip.title ?? "Untitled clip"}
         </p>
       </div>
-      <div className="flex items-center gap-3 mb-2 text-xs text-gray-400 font-mono">
-        <span>
-          {formatTime(clip.start_sec)} → {formatTime(clip.end_sec)}
-        </span>
-        <span className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">{dur}s</span>
-      </div>
+      {videoRef ? (
+        <div className="mb-2" onClick={(e) => e.stopPropagation()}>
+          <ClipTimingEditor clip={clip} videoRef={videoRef} onClipAction={onClipAction} />
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 mb-2 text-xs text-gray-400 font-mono">
+          <span>
+            {formatTime(clip.start_sec)} → {formatTime(clip.end_sec)}
+          </span>
+          <span className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">{dur}s</span>
+        </div>
+      )}
       {clip.hashtags?.length > 0 && <ClipHashtags hashtags={clip.hashtags} />}
       <ClipFooter
         clip={clip}
