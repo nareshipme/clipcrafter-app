@@ -23,7 +23,7 @@ function TopicFilterChips({
         onClick={() => onSetSelectedTopic(null)}
         className={`shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors min-h-[32px] ${selectedTopic === null ? "bg-violet-600 border-violet-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"}`}
       >
-        All ({clips?.length})
+        All topics ({clips?.length})
       </button>
       {topics.map((t) => {
         const count = clips?.filter((c) => c.topic === t).length ?? 0;
