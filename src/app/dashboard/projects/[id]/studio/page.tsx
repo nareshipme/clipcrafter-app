@@ -15,6 +15,114 @@ function getCaptionText(p: ReturnType<typeof useProjectContext>): string | null 
   return seg ? seg.text.replace(/^\[Speaker \d+\]\s*/, "") : null;
 }
 
+function StudioSidebar() {
+  const p = useProjectContext();
+  return (
+    <aside className="w-full lg:w-[420px] shrink-0 border-r border-gray-800 overflow-y-auto">
+      <div className="px-4 sm:px-5 py-5 flex flex-col gap-5">
+        <ErrorBoundary>
+          <CompletedSidebar
+            clips={p.clips}
+            sortedClips={p.sortedClips}
+            computedGraph={p.computedGraph}
+            viewMode={p.viewMode}
+            clipsStatus={p.clipsStatus}
+            selectedClipId={p.selectedClipId}
+            selectedClipIds={p.selectedClipIds}
+            selectedTopic={p.selectedTopic}
+            withCaptions={p.withCaptions}
+            topicOverrides={p.topicOverrides}
+            clipCount={p.clipCount}
+            clipPrompt={p.clipPrompt}
+            clipTargetDuration={p.clipTargetDuration}
+            data={p.data!}
+            artifacts={p.artifacts}
+            transcriptOpen={p.transcriptOpen}
+            downloadsOpen={p.downloadsOpen}
+            howItRanOpen={p.howItRanOpen}
+            videoRef={p.videoRef}
+            onSwitchView={p.switchView}
+            onGenerateClips={p.handleGenerateClips}
+            onSetClipCount={p.setClipCount}
+            onSetClipPrompt={p.setClipPrompt}
+            onSetClipTargetDuration={p.setClipTargetDuration}
+            onSetSelectedTopic={p.setSelectedTopic}
+            onSetSelectedClipId={p.setSelectedClipId}
+            onSeekToClip={p.seekToClip}
+            onToggleClipCheck={(clipId, checked) => {
+              p.setSelectedClipIds((prev) => {
+                const next = new Set(prev);
+                if (checked) next.add(clipId);
+                else next.delete(clipId);
+                return next;
+              });
+            }}
+            onSelectAll={(ids) => p.setSelectedClipIds(new Set(ids))}
+            onDeselectAll={() => p.setSelectedClipIds(new Set())}
+            onToggleCaptions={() => p.setWithCaptions((v) => !v)}
+            onExportBatch={p.handleExportBatch}
+            onClipAction={p.handleClipAction}
+            onExportClip={p.handleExportClip}
+            onSetSelectedClipIds={p.setSelectedClipIds}
+            onUpdateTopicLabel={p.updateTopicLabel}
+            onSetTopicOverrides={p.setTopicOverrides}
+            onToggleTranscript={() => p.setTranscriptOpen((o) => !o)}
+            onToggleDownloads={() => p.setDownloadsOpen((o) => !o)}
+            onToggleHowItRan={() => p.setHowItRanOpen((o) => !o)}
+            onStitchExport={p.handleStitchExport}
+          />
+        </ErrorBoundary>
+      </div>
+    </aside>
+  );
+}
+
+function StudioPlayer() {
+  const p = useProjectContext();
+  const selectedClip = p.clips?.find((c) => c.id === p.selectedClipId) ?? null;
+  const captionText = getCaptionText(p);
+  return (
+    <div className="flex-1 flex flex-col min-w-0 lg:sticky lg:top-0 lg:h-screen">
+      <ErrorBoundary>
+        <PlayerSection
+          isCompleted={true}
+          artifacts={p.artifacts}
+          videoUrl={p.videoUrl}
+          isYouTube={p.isYouTube}
+          youTubeVideoId={p.youTubeVideoId}
+          videoRef={p.videoRef}
+          timelineRef={p.timelineRef}
+          sortedClips={p.sortedClips}
+          selectedClipId={p.selectedClipId}
+          clips={p.clips}
+          duration={p.duration}
+          currentTime={p.currentTime}
+          isPlaying={p.isPlaying}
+          isLooping={p.isLooping}
+          isPreviewing={p.isPreviewing}
+          showCaptions={p.showCaptions}
+          captionText={captionText}
+          selectedClip={selectedClip}
+          onTimeUpdate={p.handleTimeUpdate}
+          onLoadedMetadata={p.handleLoadedMetadata}
+          onSetIsPlaying={p.setIsPlaying}
+          onTimelineClick={p.handleTimelineClick}
+          onHandleMouseDown={p.handleHandleMouseDown}
+          onTogglePlay={p.togglePlay}
+          onSkipPrev={p.skipPrev}
+          onSkipNext={p.skipNext}
+          onToggleLoop={() => p.setIsLooping((l) => !l)}
+          onPlayAll={p.handlePlayAll}
+          onStopPreviewing={p.stopPreviewing}
+          onToggleCaptions={() => p.setShowCaptions((c) => !c)}
+          onSetSelectedClipId={p.setSelectedClipId}
+          onSeekToClip={p.seekToClip}
+        />
+      </ErrorBoundary>
+    </div>
+  );
+}
+
 export default function StudioPage() {
   const p = useProjectContext();
 
@@ -27,9 +135,7 @@ export default function StudioPage() {
     );
   }
 
-  if (!p.data) {
-    return <p className="p-6 text-gray-400">Project not found.</p>;
-  }
+  if (!p.data) return <p className="p-6 text-gray-400">Project not found.</p>;
 
   if (!p.isCompleted) {
     return (
@@ -43,105 +149,10 @@ export default function StudioPage() {
     );
   }
 
-  const selectedClip = p.clips?.find((c) => c.id === p.selectedClipId) ?? null;
-  const captionText = getCaptionText(p);
-
   return (
     <div className="flex flex-col lg:flex-row min-h-full">
-      <aside className="w-full lg:w-[420px] shrink-0 border-r border-gray-800 overflow-y-auto">
-        <div className="px-4 sm:px-5 py-5 flex flex-col gap-5">
-          <ErrorBoundary>
-            <CompletedSidebar
-              clips={p.clips}
-              sortedClips={p.sortedClips}
-              computedGraph={p.computedGraph}
-              viewMode={p.viewMode}
-              clipsStatus={p.clipsStatus}
-              selectedClipId={p.selectedClipId}
-              selectedClipIds={p.selectedClipIds}
-              selectedTopic={p.selectedTopic}
-              withCaptions={p.withCaptions}
-              topicOverrides={p.topicOverrides}
-              clipCount={p.clipCount}
-              clipPrompt={p.clipPrompt}
-              clipTargetDuration={p.clipTargetDuration}
-              data={p.data}
-              artifacts={p.artifacts}
-              transcriptOpen={p.transcriptOpen}
-              downloadsOpen={p.downloadsOpen}
-              howItRanOpen={p.howItRanOpen}
-              videoRef={p.videoRef}
-              onSwitchView={p.switchView}
-              onGenerateClips={p.handleGenerateClips}
-              onSetClipCount={p.setClipCount}
-              onSetClipPrompt={p.setClipPrompt}
-              onSetClipTargetDuration={p.setClipTargetDuration}
-              onSetSelectedTopic={p.setSelectedTopic}
-              onSetSelectedClipId={p.setSelectedClipId}
-              onSeekToClip={p.seekToClip}
-              onToggleClipCheck={(clipId, checked) => {
-                p.setSelectedClipIds((prev) => {
-                  const next = new Set(prev);
-                  if (checked) next.add(clipId);
-                  else next.delete(clipId);
-                  return next;
-                });
-              }}
-              onSelectAll={(ids) => p.setSelectedClipIds(new Set(ids))}
-              onDeselectAll={() => p.setSelectedClipIds(new Set())}
-              onToggleCaptions={() => p.setWithCaptions((v) => !v)}
-              onExportBatch={p.handleExportBatch}
-              onClipAction={p.handleClipAction}
-              onExportClip={p.handleExportClip}
-              onSetSelectedClipIds={p.setSelectedClipIds}
-              onUpdateTopicLabel={p.updateTopicLabel}
-              onSetTopicOverrides={p.setTopicOverrides}
-              onToggleTranscript={() => p.setTranscriptOpen((o) => !o)}
-              onToggleDownloads={() => p.setDownloadsOpen((o) => !o)}
-              onToggleHowItRan={() => p.setHowItRanOpen((o) => !o)}
-              onStitchExport={p.handleStitchExport}
-            />
-          </ErrorBoundary>
-        </div>
-      </aside>
-      <div className="flex-1 flex flex-col min-w-0 lg:sticky lg:top-0 lg:h-screen">
-        <ErrorBoundary>
-          <PlayerSection
-            isCompleted={true}
-            artifacts={p.artifacts}
-            videoUrl={p.videoUrl}
-            isYouTube={p.isYouTube}
-            youTubeVideoId={p.youTubeVideoId}
-            videoRef={p.videoRef}
-            timelineRef={p.timelineRef}
-            sortedClips={p.sortedClips}
-            selectedClipId={p.selectedClipId}
-            clips={p.clips}
-            duration={p.duration}
-            currentTime={p.currentTime}
-            isPlaying={p.isPlaying}
-            isLooping={p.isLooping}
-            isPreviewing={p.isPreviewing}
-            showCaptions={p.showCaptions}
-            captionText={captionText}
-            selectedClip={selectedClip}
-            onTimeUpdate={p.handleTimeUpdate}
-            onLoadedMetadata={p.handleLoadedMetadata}
-            onSetIsPlaying={p.setIsPlaying}
-            onTimelineClick={p.handleTimelineClick}
-            onHandleMouseDown={p.handleHandleMouseDown}
-            onTogglePlay={p.togglePlay}
-            onSkipPrev={p.skipPrev}
-            onSkipNext={p.skipNext}
-            onToggleLoop={() => p.setIsLooping((l) => !l)}
-            onPlayAll={p.handlePlayAll}
-            onStopPreviewing={p.stopPreviewing}
-            onToggleCaptions={() => p.setShowCaptions((c) => !c)}
-            onSetSelectedClipId={p.setSelectedClipId}
-            onSeekToClip={p.seekToClip}
-          />
-        </ErrorBoundary>
-      </div>
+      <StudioSidebar />
+      <StudioPlayer />
     </div>
   );
 }
