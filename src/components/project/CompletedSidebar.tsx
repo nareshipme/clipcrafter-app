@@ -287,7 +287,11 @@ function GenerateSection(p: CompletedSidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(!hasClips);
   const isGenerating = p.clipsStatus === "generating";
 
-  type SettingsSnapshot = { clipCount: number | "auto"; clipPrompt: string; clipTargetDuration: string };
+  type SettingsSnapshot = {
+    clipCount: number | "auto";
+    clipPrompt: string;
+    clipTargetDuration: string;
+  };
   const lastGenerated = useRef<SettingsSnapshot | null>(null);
 
   // Snapshot settings on mount and when clips first become non-empty
@@ -299,7 +303,7 @@ function GenerateSection(p: CompletedSidebarProps) {
         clipTargetDuration: p.clipTargetDuration,
       };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasClips]);
 
   const settingsChanged =

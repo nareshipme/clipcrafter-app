@@ -79,6 +79,10 @@ export interface CollapsibleSidebarProps {
   onToggleHowItRan: () => void;
 }
 
-export function CollapsibleSidebar({ data, howItRanOpen, onToggleHowItRan }: CollapsibleSidebarProps) {
+export function CollapsibleSidebar({
+  data,
+  howItRanOpen,
+  onToggleHowItRan,
+}: CollapsibleSidebarProps) {
   return <HowItRanSection data={data} open={howItRanOpen} onToggle={onToggleHowItRan} />;
 }
