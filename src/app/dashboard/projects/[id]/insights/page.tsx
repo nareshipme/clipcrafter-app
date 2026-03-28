@@ -1,7 +1,6 @@
 "use client";
 
 import { useProjectContext } from "@/components/project/ProjectContext";
-import { CollapsibleSidebar } from "@/components/project/CollapsibleSidebar";
 import { Segment } from "@/components/project/types";
 
 function formatTime(seconds: number): string {
@@ -75,12 +74,6 @@ export default function InsightsPage() {
         <h2 className="text-xl font-bold text-white mb-4">Transcript</h2>
         <TranscriptView segments={segments} />
       </section>
-
-      <CollapsibleSidebar
-        data={p.data}
-        howItRanOpen={p.howItRanOpen}
-        onToggleHowItRan={() => p.setHowItRanOpen((o) => !o)}
-      />
     </div>
   );
 }

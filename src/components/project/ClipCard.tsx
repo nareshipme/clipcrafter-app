@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Clip, CaptionStyle } from "./types";
+import React, { useState } from "react";
+import { Clip, CaptionStyle, Segment } from "./types";
 
 export function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -72,6 +72,47 @@ function ClipExportControl({ clip, onExport }: { clip: Clip; onExport: (clipId: 
   );
 }
 
+const SPEAKER_COLORS = [
+  "text-violet-400",
+  "text-blue-400",
+  "text-green-400",
+  "text-yellow-400",
+  "text-pink-400",
+];
+
+function ClipTranscript({ segments }: { segments: Segment[] }) {
+  return (
+    <div
+      className="bg-gray-900 rounded-lg p-3 mt-2 max-h-[200px] overflow-y-auto"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex flex-col gap-1.5">
+        {segments.map((seg) => {
+          const m = seg.text.match(/^\[Speaker (\d+)\]\s*/);
+          const speakerNum = m ? parseInt(m[1]) : null;
+          const text = m ? seg.text.slice(m[0].length) : seg.text;
+          const color =
+            speakerNum !== null
+              ? SPEAKER_COLORS[speakerNum % SPEAKER_COLORS.length]
+              : "text-gray-400";
+          const mm = Math.floor(seg.start / 60);
+          const ss = Math.floor(seg.start % 60);
+          const ts = `${mm}:${String(ss).padStart(2, "0")}`;
+          return (
+            <div key={seg.id} className="flex gap-2 text-xs leading-relaxed">
+              <span className="text-gray-600 font-mono shrink-0 w-9">{ts}</span>
+              {speakerNum !== null && (
+                <span className={`font-bold shrink-0 w-5 ${color}`}>S{speakerNum}</span>
+              )}
+              <span className="text-gray-400">{text}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export interface ClipCardProps {
   clip: Clip;
   isSelected: boolean;
@@ -86,6 +127,7 @@ export interface ClipCardProps {
     >
   ) => void;
   onExportClip: (clipId: string) => void;
+  transcriptSegments?: Segment[];
 }
 
 function ClipActions({
@@ -175,7 +217,11 @@ export function ClipCard({
   onToggleCheck,
   onClipAction,
   onExportClip,
+  transcriptSegments,
 }: ClipCardProps) {
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const clipSegments =
+    transcriptSegments?.filter((s) => s.end > clip.start_sec && s.start < clip.end_sec) ?? [];
   const dur = clip.duration_sec?.toFixed(1) ?? (clip.end_sec - clip.start_sec).toFixed(1);
   return (
     <div
@@ -213,7 +259,22 @@ export function ClipCard({
         <span className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">{dur}s</span>
       </div>
       {clip.hashtags?.length > 0 && <ClipHashtags hashtags={clip.hashtags} />}
-      <ClipActions clip={clip} onClipAction={onClipAction} onExportClip={onExportClip} />
+      <div className="flex flex-wrap items-center gap-2">
+        <ClipActions clip={clip} onClipAction={onClipAction} onExportClip={onExportClip} />
+        {clipSegments.length > 0 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTranscriptOpen((o) => !o);
+            }}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded bg-gray-800 hover:bg-gray-700"
+          >
+            📝 Transcript {transcriptOpen ? "▴" : "▾"}
+          </button>
+        )}
+      </div>
+      {transcriptOpen && clipSegments.length > 0 && <ClipTranscript segments={clipSegments} />}
     </div>
   );
 }

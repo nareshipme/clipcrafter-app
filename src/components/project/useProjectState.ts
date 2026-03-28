@@ -15,7 +15,6 @@ export function useProjectState() {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
-  const [howItRanOpen, setHowItRanOpen] = useState(false);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
   const [withCaptions, setWithCaptions] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "graph">("list");
@@ -53,8 +52,6 @@ export function useProjectState() {
     setTranscriptOpen,
     downloadsOpen,
     setDownloadsOpen,
-    howItRanOpen,
-    setHowItRanOpen,
     selectedClipIds,
     setSelectedClipIds,
     withCaptions,

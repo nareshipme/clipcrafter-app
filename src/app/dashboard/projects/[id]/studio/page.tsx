@@ -36,7 +36,6 @@ function StudioSidebar() {
             clipPrompt={p.clipPrompt}
             clipTargetDuration={p.clipTargetDuration}
             data={p.data!}
-            howItRanOpen={p.howItRanOpen}
             videoRef={p.videoRef}
             onSwitchView={p.switchView}
             onGenerateClips={p.handleGenerateClips}
@@ -63,7 +62,6 @@ function StudioSidebar() {
             onSetSelectedClipIds={p.setSelectedClipIds}
             onUpdateTopicLabel={p.updateTopicLabel}
             onSetTopicOverrides={p.setTopicOverrides}
-            onToggleHowItRan={() => p.setHowItRanOpen((o) => !o)}
             onStitchExport={p.handleStitchExport}
           />
         </ErrorBoundary>

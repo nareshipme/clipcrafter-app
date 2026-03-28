@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Clip, StatusData } from "./types";
 import { ClipListView } from "./ClipListView";
 import { GraphView } from "./GraphView";
-import { CollapsibleSidebar } from "./CollapsibleSidebar";
 import type { VideoGraph } from "@/lib/video-graph";
+import { Segment } from "./types";
 
 export interface CompletedSidebarProps {
   clips: Clip[] | null;
@@ -22,7 +22,6 @@ export interface CompletedSidebarProps {
   clipPrompt: string;
   clipTargetDuration: string;
   data: StatusData;
-  howItRanOpen: boolean;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   onSwitchView: (mode: "list" | "graph") => void;
   onGenerateClips: () => void;
@@ -47,7 +46,6 @@ export interface CompletedSidebarProps {
   onSetSelectedClipIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   onUpdateTopicLabel: (original: string, label: string) => void;
   onSetTopicOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  onToggleHowItRan: () => void;
   onStitchExport?: () => void;
 }
 
@@ -214,7 +212,7 @@ type ClipViewProps = Pick<
   | "onUpdateTopicLabel"
   | "onSetTopicOverrides"
   | "onStitchExport"
->;
+> & { transcriptSegments?: Segment[] };
 
 function ClipViewBody(props: ClipViewProps & { clips: NonNullable<ClipViewProps["clips"]> }) {
   const { viewMode, computedGraph, sortedClips, clips } = props;
@@ -261,6 +259,7 @@ function ClipViewBody(props: ClipViewProps & { clips: NonNullable<ClipViewProps[
         onExportClip={props.onExportClip}
         onGenerateClips={props.onGenerateClips}
         onStitchExport={props.onStitchExport}
+        transcriptSegments={props.transcriptSegments}
       />
     );
   }
@@ -436,20 +435,12 @@ function GenerateSection(p: CompletedSidebarProps) {
         onUpdateTopicLabel={p.onUpdateTopicLabel}
         onSetTopicOverrides={p.onSetTopicOverrides}
         onStitchExport={p.onStitchExport}
+        transcriptSegments={(p.data.transcript?.segments ?? []) as Segment[]}
       />
     </>
   );
 }
 
 export function CompletedSidebar(p: CompletedSidebarProps) {
-  return (
-    <>
-      <GenerateSection {...p} />
-      <CollapsibleSidebar
-        data={p.data}
-        howItRanOpen={p.howItRanOpen}
-        onToggleHowItRan={p.onToggleHowItRan}
-      />
-    </>
-  );
+  return <GenerateSection {...p} />;
 }

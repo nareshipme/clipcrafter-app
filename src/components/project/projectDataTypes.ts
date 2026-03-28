@@ -40,8 +40,6 @@ export interface ProjectDataResult {
   setTranscriptOpen: React.Dispatch<React.SetStateAction<boolean>>;
   downloadsOpen: boolean;
   setDownloadsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  howItRanOpen: boolean;
-  setHowItRanOpen: React.Dispatch<React.SetStateAction<boolean>>;
   viewMode: "list" | "graph";
   topicOverrides: Record<string, string>;
   setTopicOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;

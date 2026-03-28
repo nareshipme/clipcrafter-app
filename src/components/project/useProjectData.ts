@@ -192,8 +192,6 @@ function buildResult(
     setTranscriptOpen: s.setTranscriptOpen,
     downloadsOpen: s.downloadsOpen,
     setDownloadsOpen: s.setDownloadsOpen,
-    howItRanOpen: s.howItRanOpen,
-    setHowItRanOpen: s.setHowItRanOpen,
     viewMode: s.viewMode,
     topicOverrides: s.topicOverrides,
     setTopicOverrides: s.setTopicOverrides,

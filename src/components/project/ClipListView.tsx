@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import { Clip } from "./types";
+import { Clip, Segment } from "./types";
 import { ClipCard, SkippedClipCard } from "./ClipCard";
 
 function TopicFilterChips({
@@ -239,6 +239,7 @@ export interface ClipListViewProps {
   onGenerateClips: () => void;
   onOpenDownloads?: () => void;
   onStitchExport?: () => void;
+  transcriptSegments?: Segment[];
 }
 
 function ClipTabNav({
@@ -326,6 +327,7 @@ type ClipBodyProps = {
   regularClips: Clip[];
   skippedClips: Clip[];
   displayClips: Clip[];
+  transcriptSegments?: Segment[];
 } & Omit<
   ClipListViewProps,
   "sortedClips" | "selectedTopic" | "onSetSelectedTopic" | "onOpenDownloads"
@@ -373,6 +375,7 @@ function ClipBody(p: ClipBodyProps) {
               onToggleCheck={p.onToggleClipCheck}
               onClipAction={p.onClipAction}
               onExportClip={p.onExportClip}
+              transcriptSegments={p.transcriptSegments}
             />
           ))}
         {p.activeTab === "skipped" && (
@@ -424,6 +427,7 @@ export function ClipListView(props: ClipListViewProps) {
         regularClips={regularClips}
         skippedClips={skippedClips}
         displayClips={displayClips}
+        transcriptSegments={props.transcriptSegments}
       />
     </>
   );
