@@ -407,8 +407,7 @@ function ClipBody(p: ClipBodyProps) {
 }
 
 export function ClipListView(props: ClipListViewProps) {
-  const { sortedClips, selectedTopic, clipsStatus, clips, onSetSelectedTopic, onOpenDownloads } =
-    props;
+  const { sortedClips, selectedTopic, clipsStatus, clips, onSetSelectedTopic } = props;
   const [activeTab, setActiveTab] = useState<"clips" | "skipped">("clips");
   useExportReadyToast(clips);
 
