@@ -304,13 +304,28 @@ function SkippedList({ clips, onRestore }: { clips: Clip[]; onRestore: (id: stri
 }
 
 function useExportReadyToast(clips: Clip[] | null) {
-  const prevClipsRef = useRef<Clip[]>([]);
+  // Track which clip IDs we've already toasted — persists across re-renders/re-fetches
+  const notifiedIds = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!clips) return;
     clips.forEach((clip) => {
-      const prev = prevClipsRef.current.find((c) => c.id === clip.id);
-      if (prev?.status !== "exported" && clip.status === "exported") {
-        // Just notify — no auto-download
+      if (clip.status === "exported" && !notifiedIds.current.has(clip.id)) {
+        // Only toast for clips that just became exported in this session (not on page load)
+        // We initialize the set on first load, then only toast for new transitions
+      }
+    });
+    // On first load, seed notifiedIds with all already-exported clips so we don't toast them
+    if (notifiedIds.current.size === 0) {
+      clips.forEach((clip) => {
+        if (clip.status === "exported") notifiedIds.current.add(clip.id);
+      });
+      return;
+    }
+    // On subsequent updates, toast only newly exported clips
+    clips.forEach((clip) => {
+      if (clip.status === "exported" && !notifiedIds.current.has(clip.id)) {
+        notifiedIds.current.add(clip.id);
         toast.success("Clip ready!", {
           description: clip.clip_title ?? "Your clip has been exported",
           action: {
@@ -320,7 +335,6 @@ function useExportReadyToast(clips: Clip[] | null) {
         });
       }
     });
-    prevClipsRef.current = clips;
   }, [clips]);
 }
 
