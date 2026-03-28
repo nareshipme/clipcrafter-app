@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type UsageData = {
   plan: string;
@@ -52,6 +53,12 @@ function AlphaMeter({ data }: { data: UsageData }) {
         {formatMinutes(data.dailyUsageSeconds)} / 2h used today
         {pct >= 100 && <span className="text-red-400 ml-1">— daily limit reached</span>}
       </p>
+      <Link
+        href="/dashboard/billing"
+        className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+      >
+        Manage billing →
+      </Link>
     </div>
   );
 }
@@ -77,6 +84,12 @@ function TrialMeter({ data }: { data: UsageData }) {
           </p>
         </>
       )}
+      <Link
+        href="/dashboard/billing"
+        className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+      >
+        Manage billing →
+      </Link>
     </div>
   );
 }
@@ -113,6 +126,12 @@ function FreeMeter({
           {startingTrial ? "Starting…" : "Start Free Trial"}
         </button>
       </div>
+      <Link
+        href="/dashboard/billing"
+        className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+      >
+        View plans →
+      </Link>
     </div>
   );
 }

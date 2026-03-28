@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import ProjectCard, { type Project } from "@/components/ProjectCard";
 import UploadModal from "@/components/UploadModal";
 import UsageMeter from "@/components/billing/UsageMeter";
-import InviteCodeBanner from "@/components/billing/InviteCodeBanner";
+import { PlanBadge } from "@/components/billing/PlanBadge";
 
 function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -129,13 +129,13 @@ export default function DashboardPage() {
           >
             New Project
           </button>
+          <PlanBadge />
           <UserButton />
         </div>
       </header>
 
       <main className="px-4 sm:px-6 py-8 max-w-6xl mx-auto space-y-4">
         <UsageMeter />
-        <InviteCodeBanner />
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map((n) => (
