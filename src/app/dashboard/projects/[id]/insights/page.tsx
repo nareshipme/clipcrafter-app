@@ -1,10 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import { useProjectContext } from "@/components/project/ProjectContext";
 import { CollapsibleSidebar } from "@/components/project/CollapsibleSidebar";
 
 export default function InsightsPage() {
   const p = useProjectContext();
+
+  useEffect(() => {
+    p.setTranscriptOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (p.loading) {
     return (
@@ -21,7 +27,8 @@ export default function InsightsPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 py-6 flex flex-col gap-6 max-w-3xl">
+    <div className="px-4 sm:px-6 py-6 flex flex-col gap-6">
+      <h2 className="text-xl font-bold text-white">Transcript</h2>
       {/* Transcript and "How it ran" — pass null artifacts to suppress the Downloads section */}
       <CollapsibleSidebar
         data={p.data}

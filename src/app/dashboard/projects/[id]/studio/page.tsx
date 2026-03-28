@@ -18,7 +18,7 @@ function getCaptionText(p: ReturnType<typeof useProjectContext>): string | null 
 function StudioSidebar() {
   const p = useProjectContext();
   return (
-    <aside className="w-full lg:w-[420px] shrink-0 border-r border-gray-800 overflow-y-auto">
+    <aside className="w-full lg:w-[400px] shrink-0 lg:border-r border-gray-800 overflow-y-auto">
       <div className="px-4 sm:px-5 py-5 flex flex-col gap-5">
         <ErrorBoundary>
           <CompletedSidebar
@@ -149,10 +149,30 @@ export default function StudioPage() {
     );
   }
 
+  const selectedCount = p.selectedClipIds.size;
+
   return (
     <div className="flex flex-col lg:flex-row min-h-full">
-      <StudioSidebar />
-      <StudioPlayer />
+      {/* Player: top on mobile, right column on desktop */}
+      <div className="order-1 lg:order-2 lg:flex-1">
+        <StudioPlayer />
+      </div>
+      {/* Sidebar: below player on mobile, left column on desktop */}
+      <div className="order-2 lg:order-1">
+        <StudioSidebar />
+      </div>
+      {/* Sticky export bar — mobile only, shown when clips are selected */}
+      {selectedCount > 0 && (
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 px-4 py-3 bg-gray-950 border-t border-gray-800 z-20">
+          <button
+            type="button"
+            onClick={p.handleExportBatch}
+            className="w-full py-3 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors"
+          >
+            Export {selectedCount} clip{selectedCount !== 1 ? "s" : ""}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

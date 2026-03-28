@@ -56,9 +56,7 @@ export default function OutputsPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 py-6 flex flex-col gap-8 max-w-3xl">
-      <h2 className="text-lg font-bold text-white">Exports</h2>
-
+    <div className="px-4 sm:px-6 py-6 flex flex-col gap-8">
       {p.artifacts && Object.keys(p.artifacts).length > 0 && (
         <ArtifactLinks artifacts={p.artifacts} />
       )}
