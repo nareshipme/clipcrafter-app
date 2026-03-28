@@ -95,18 +95,44 @@ function TimelineScrubber({
               }}
             >
               <div
-                className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize flex items-center justify-center"
+                className="absolute left-0 top-0 bottom-0 w-6 cursor-ew-resize flex items-center justify-center touch-none"
                 onMouseDown={(e) => onHandleMouseDown(e, clip.id, "start")}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  const touch = e.touches[0];
+                  onHandleMouseDown(
+                    {
+                      clientX: touch.clientX,
+                      stopPropagation: () => {},
+                      preventDefault: () => {},
+                    } as unknown as React.MouseEvent,
+                    clip.id,
+                    "start"
+                  );
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="w-1 h-6 bg-white/60 rounded-full" />
+                <div className="w-1.5 h-8 bg-white/80 rounded-full" />
               </div>
               <div
-                className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize flex items-center justify-center"
+                className="absolute right-0 top-0 bottom-0 w-6 cursor-ew-resize flex items-center justify-center touch-none"
                 onMouseDown={(e) => onHandleMouseDown(e, clip.id, "end")}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  const touch = e.touches[0];
+                  onHandleMouseDown(
+                    {
+                      clientX: touch.clientX,
+                      stopPropagation: () => {},
+                      preventDefault: () => {},
+                    } as unknown as React.MouseEvent,
+                    clip.id,
+                    "end"
+                  );
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="w-1 h-6 bg-white/60 rounded-full" />
+                <div className="w-1.5 h-8 bg-white/80 rounded-full" />
               </div>
             </div>
           );

@@ -167,8 +167,14 @@ export function makeHandleHandleMouseDown(
     e.preventDefault();
     dragStateRef.current = { clipId, side };
 
-    // Track drag value via closure variable — no state updates during mousemove
-    let dragValue = 0;
+    // Initialize dragValue to the clip's current boundary — so a click without drag
+    // doesn't reset the value to 0 on mouseup
+    const currentClipInitial = clipsRef.current?.find((c) => c.id === clipId);
+    let dragValue = currentClipInitial
+      ? side === "start"
+        ? currentClipInitial.start_sec
+        : currentClipInitial.end_sec
+      : 0;
     let lastSeekMs = 0;
 
     function onMouseMove(ev: MouseEvent) {
@@ -220,7 +226,21 @@ export function makeHandleHandleMouseDown(
       }).catch(() => toast.error("Failed to save clip timing"));
     }
 
+    function onTouchMove(ev: TouchEvent) {
+      ev.preventDefault();
+      const touch = ev.touches[0];
+      onMouseMove({ clientX: touch.clientX } as MouseEvent);
+    }
+
+    function onTouchEnd() {
+      onMouseUp();
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    }
+
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
   };
 }
