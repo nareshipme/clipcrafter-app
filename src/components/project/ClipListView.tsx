@@ -112,9 +112,9 @@ function ExportActions({
           type="button"
           onClick={onExportBatch}
           disabled={isExporting}
-          className="text-xs text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-2 py-1"
+          className="text-xs text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-2 py-1 whitespace-nowrap"
         >
-          ↗ Export individually
+          ↗ individual
         </button>
         <button
           type="button"
@@ -178,7 +178,7 @@ function ExportBar({
           if (selectedClipIds.size === sortedClips.length) onDeselectAll();
           else onSelectAll(sortedClips.map((c) => c.id));
         }}
-        className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors min-h-[30px]"
+        className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors min-h-[30px] whitespace-nowrap"
       >
         Select All
       </button>
