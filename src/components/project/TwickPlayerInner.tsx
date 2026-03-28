@@ -56,8 +56,7 @@ function buildProjectData(videoUrl: string, duration: number) {
               id: "e-main-video",
               type: "video",
               s: 0,
-              // Fall back to 1 h until LivePlayer reports real duration
-              e: duration > 0 ? duration : 3600,
+              e: duration > 0 ? duration : 3600, // fall back to 1 h until LivePlayer reports real duration
               props: { src: videoUrl, width: 1920, height: 1080 },
             },
           ],
@@ -68,53 +67,240 @@ function buildProjectData(videoUrl: string, duration: number) {
   };
 }
 
-export default function TwickPlayerInner({
-  videoUrl,
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function YoutubeDisplay({
+  youTubeVideoId,
+  selectedClipId,
+  clips,
+}: {
+  youTubeVideoId: string;
+  selectedClipId: string | null;
+  clips: Clip[] | null;
+}) {
+  const selectedClip = clips?.find((x) => x.id === selectedClipId);
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center">
+      <iframe
+        className="w-full h-full"
+        src={`https://www.youtube.com/embed/${youTubeVideoId}?enablejsapi=1&rel=0`}
+        title="YouTube video player"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+      {selectedClip && (
+        <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm">
+          Clip: {formatTime(selectedClip.start_sec)} → {formatTime(selectedClip.end_sec)}
+        </div>
+      )}
+      <div className="absolute bottom-3 left-3 bg-black/70 text-yellow-400 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm">
+        📺 YouTube — use the seek bar to navigate to clip timestamps
+      </div>
+    </div>
+  );
+}
+
+function TwickScrubber({
   timelineRef,
   sortedClips,
   selectedClipId,
-  clips,
-  duration,
-  currentTime,
-  isPlaying,
-  isLooping,
-  isPreviewing,
-  showCaptions,
-  captionText,
-  selectedClip,
-  isYouTube,
-  youTubeVideoId,
-  onTimeUpdate,
-  onLoadedMetadata,
-  onSetIsPlaying,
+  displayTime,
+  displayDuration,
   onTimelineClick,
   onHandleMouseDown,
-  onTogglePlay,
-  onSkipPrev,
-  onSkipNext,
-  onToggleLoop,
-  onPlayAll,
-  onStopPreviewing,
-  onToggleCaptions,
   onSetSelectedClipId,
   onSeekToClip,
-}: Props) {
-  // Local time/duration driven by LivePlayer; parent state lags behind
-  const [localTime, setLocalTime] = useState(currentTime);
-  const [localDuration, setLocalDuration] = useState(duration);
+}: {
+  timelineRef: React.RefObject<HTMLDivElement | null>;
+  sortedClips: Clip[] | null;
+  selectedClipId: string | null;
+  displayTime: number;
+  displayDuration: number;
+  onTimelineClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onHandleMouseDown: (e: React.MouseEvent, clipId: string, side: "start" | "end") => void;
+  onSetSelectedClipId: (id: string) => void;
+  onSeekToClip: (clip: Clip) => void;
+}) {
+  return (
+    <div
+      ref={timelineRef}
+      className="relative h-20 bg-gray-900 border-t border-gray-800 cursor-pointer shrink-0"
+      onClick={onTimelineClick}
+    >
+      {sortedClips &&
+        displayDuration > 0 &&
+        sortedClips.map((clip) => {
+          const left = (clip.start_sec / displayDuration) * 100;
+          const width = ((clip.end_sec - clip.start_sec) / displayDuration) * 100;
+          const isSel = clip.id === selectedClipId;
+          return (
+            <div
+              key={clip.id}
+              className={`absolute top-2 bottom-2 rounded ${clipBarColor(clip, isSel)} ${isSel ? "z-10" : "z-0"}`}
+              style={{ left: `${left}%`, width: `${width}%` }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSetSelectedClipId(clip.id);
+                onSeekToClip(clip);
+              }}
+            >
+              {(["start", "end"] as const).map((side) => (
+                <div
+                  key={side}
+                  className={`absolute ${side === "start" ? "left-0" : "right-0"} top-0 bottom-0 w-6 cursor-ew-resize flex items-center justify-center touch-none`}
+                  onMouseDown={(e) => onHandleMouseDown(e, clip.id, side)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-1.5 h-8 bg-white/80 rounded-full" />
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      {displayDuration > 0 && (
+        <div
+          className="absolute top-0 bottom-0 w-px bg-white z-20 pointer-events-none"
+          style={{ left: `${(displayTime / displayDuration) * 100}%` }}
+        />
+      )}
+      <div className="absolute bottom-1 left-2 text-xs text-gray-600 font-mono pointer-events-none">
+        {formatTime(displayTime)}
+      </div>
+      <div className="absolute bottom-1 right-2 text-xs text-gray-600 font-mono pointer-events-none">
+        {formatTime(displayDuration)}
+      </div>
+    </div>
+  );
+}
+
+type TransportRowProps = {
+  isPlaying: boolean;
+  isLooping: boolean;
+  isPreviewing: boolean;
+  displayTime: number;
+  displayDuration: number;
+  onTogglePlay: () => void;
+  onSkipPrev: () => void;
+  onSkipNext: () => void;
+  onToggleLoop: () => void;
+  onPlayAll: () => void;
+  onStopPreviewing: () => void;
+};
+
+function TransportRow(p: TransportRowProps) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={p.onSkipPrev}
+        aria-label="Previous clip"
+        className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={p.onTogglePlay}
+        aria-label={p.isPlaying ? "Pause" : "Play"}
+        className="p-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+      >
+        {p.isPlaying ? (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+          </svg>
+        ) : (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={p.onSkipNext}
+        aria-label="Next clip"
+        className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 18l8.5-6L6 6v12zm2.5-6l5.5-3.9v7.8L8.5 12zM16 6h2v12h-2z" />
+        </svg>
+      </button>
+      <span className="text-xs text-gray-400 font-mono ml-1">
+        {formatTime(p.displayTime)} / {formatTime(p.displayDuration)}
+      </span>
+      <div className="flex-1" />
+      <button
+        type="button"
+        onClick={p.onToggleLoop}
+        aria-label="Loop"
+        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${p.isLooping ? "bg-violet-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+      >
+        🔁 Loop
+      </button>
+      {p.isPreviewing ? (
+        <button
+          type="button"
+          onClick={p.onStopPreviewing}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-700 hover:bg-red-600 text-white transition-colors"
+        >
+          ⏹ Stop
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={p.onPlayAll}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-800 text-gray-400 hover:text-white transition-colors"
+        >
+          ▶ Play All
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CaptionsRow({
+  showCaptions,
+  selectedClip,
+  onToggleCaptions,
+}: {
+  showCaptions: boolean;
+  selectedClip: Clip | null;
+  onToggleCaptions: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={onToggleCaptions}
+        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${showCaptions ? "bg-violet-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+      >
+        Captions {showCaptions ? "On" : "Off"}
+      </button>
+      {selectedClip && (
+        <span className="text-xs text-gray-500 truncate">
+          {selectedClip.clip_title ?? selectedClip.title ?? "Untitled clip"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
+
+export default function TwickPlayerInner(p: Props) {
+  const { onTimeUpdate, onLoadedMetadata } = p;
+  const [localTime, setLocalTime] = useState(p.currentTime);
+  const [localDuration, setLocalDuration] = useState(p.duration);
 
   const projectData = useMemo(
-    () => buildProjectData(videoUrl, localDuration),
-    // Rebuild only when URL or duration changes, not every render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [videoUrl, localDuration]
+    () => buildProjectData(p.videoUrl, localDuration),
+    [p.videoUrl, localDuration]
   );
 
   const handleTimeUpdate = useCallback(
     (time: number) => {
       setLocalTime(time);
-      // Parent's onTimeUpdate reads videoRef.current which isn't set here;
-      // call it anyway so any side-effects in parent still fire.
       onTimeUpdate();
     },
     [onTimeUpdate]
@@ -129,200 +315,69 @@ export default function TwickPlayerInner({
   );
 
   const displayTime = localTime;
-  const displayDuration = localDuration > 0 ? localDuration : duration;
+  const displayDuration = localDuration > 0 ? localDuration : p.duration;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* ── Video area ────────────────────────────────────────────── */}
       <div className="relative bg-black flex-1 min-h-0 flex items-center justify-center">
-        {isYouTube && youTubeVideoId ? (
-          <div className="w-full h-full flex flex-col items-center justify-center">
-            <iframe
-              className="w-full h-full"
-              src={`https://www.youtube.com/embed/${youTubeVideoId}?enablejsapi=1&rel=0`}
-              title="YouTube video player"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-            {selectedClipId &&
-              clips &&
-              (() => {
-                const c = clips.find((x) => x.id === selectedClipId);
-                return c ? (
-                  <div className="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                    Clip: {formatTime(c.start_sec)} → {formatTime(c.end_sec)}
-                  </div>
-                ) : null;
-              })()}
-            <div className="absolute bottom-3 left-3 bg-black/70 text-yellow-400 text-xs px-3 py-1.5 rounded-lg backdrop-blur-sm">
-              📺 YouTube — use the seek bar to navigate to clip timestamps
-            </div>
-          </div>
+        {p.isYouTube && p.youTubeVideoId ? (
+          <YoutubeDisplay
+            youTubeVideoId={p.youTubeVideoId}
+            selectedClipId={p.selectedClipId}
+            clips={p.clips}
+          />
         ) : (
           <>
-            {/* @twick/live-player renders the video via projectData */}
             <LivePlayer
               projectData={projectData}
               videoSize={{ width: 1920, height: 1080 }}
-              playing={isPlaying}
+              playing={p.isPlaying}
               onTimeUpdate={handleTimeUpdate}
               onDurationChange={handleDurationChange}
             />
-            {captionText && (
+            {p.captionText && (
               <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6 pointer-events-none">
                 <span className="bg-black/75 text-white text-sm font-medium px-3 py-1.5 rounded-lg text-center max-w-lg">
-                  {captionText}
+                  {p.captionText}
                 </span>
               </div>
             )}
           </>
         )}
       </div>
-
-      {/* ── Timeline scrubber ─────────────────────────────────────── */}
-      {!isYouTube && (
-        <div
-          ref={timelineRef}
-          className="relative h-20 bg-gray-900 border-t border-gray-800 cursor-pointer shrink-0"
-          onClick={onTimelineClick}
-        >
-          {sortedClips &&
-            displayDuration > 0 &&
-            sortedClips.map((clip) => {
-              const left = (clip.start_sec / displayDuration) * 100;
-              const width = ((clip.end_sec - clip.start_sec) / displayDuration) * 100;
-              const isSel = clip.id === selectedClipId;
-              return (
-                <div
-                  key={clip.id}
-                  className={`absolute top-2 bottom-2 rounded ${clipBarColor(clip, isSel)} ${isSel ? "z-10" : "z-0"}`}
-                  style={{ left: `${left}%`, width: `${width}%` }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSetSelectedClipId(clip.id);
-                    onSeekToClip(clip);
-                  }}
-                >
-                  {(["start", "end"] as const).map((side) => (
-                    <div
-                      key={side}
-                      className={`absolute ${side === "start" ? "left-0" : "right-0"} top-0 bottom-0 w-6 cursor-ew-resize flex items-center justify-center touch-none`}
-                      onMouseDown={(e) => onHandleMouseDown(e, clip.id, side)}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="w-1.5 h-8 bg-white/80 rounded-full" />
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          {displayDuration > 0 && (
-            <div
-              className="absolute top-0 bottom-0 w-px bg-white z-20 pointer-events-none"
-              style={{ left: `${(displayTime / displayDuration) * 100}%` }}
-            />
-          )}
-          <div className="absolute bottom-1 left-2 text-xs text-gray-600 font-mono pointer-events-none">
-            {formatTime(displayTime)}
-          </div>
-          <div className="absolute bottom-1 right-2 text-xs text-gray-600 font-mono pointer-events-none">
-            {formatTime(displayDuration)}
-          </div>
-        </div>
+      {!p.isYouTube && (
+        <TwickScrubber
+          timelineRef={p.timelineRef}
+          sortedClips={p.sortedClips}
+          selectedClipId={p.selectedClipId}
+          displayTime={displayTime}
+          displayDuration={displayDuration}
+          onTimelineClick={p.onTimelineClick}
+          onHandleMouseDown={p.onHandleMouseDown}
+          onSetSelectedClipId={p.onSetSelectedClipId}
+          onSeekToClip={p.onSeekToClip}
+        />
       )}
-
-      {/* ── Transport controls ────────────────────────────────────── */}
-      {!isYouTube && (
+      {!p.isYouTube && (
         <div className="shrink-0 bg-gray-900 border-t border-gray-800 px-4 py-3 flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onSkipPrev}
-              aria-label="Previous clip"
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              aria-label={isPlaying ? "Pause" : "Play"}
-              className="p-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors"
-            >
-              {isPlaying ? (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onSkipNext}
-              aria-label="Next clip"
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 18l8.5-6L6 6v12zm2.5-6l5.5-3.9v7.8L8.5 12zM16 6h2v12h-2z" />
-              </svg>
-            </button>
-            <span className="text-xs text-gray-400 font-mono ml-1">
-              {formatTime(displayTime)} / {formatTime(displayDuration)}
-            </span>
-            <div className="flex-1" />
-            <button
-              type="button"
-              onClick={onToggleLoop}
-              aria-label="Loop"
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                isLooping
-                  ? "bg-violet-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
-              🔁 Loop
-            </button>
-            {isPreviewing ? (
-              <button
-                type="button"
-                onClick={onStopPreviewing}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-700 hover:bg-red-600 text-white transition-colors"
-              >
-                ⏹ Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onPlayAll}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-800 text-gray-400 hover:text-white transition-colors"
-              >
-                ▶ Play All
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onToggleCaptions}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                showCaptions
-                  ? "bg-violet-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
-              Captions {showCaptions ? "On" : "Off"}
-            </button>
-            {selectedClip && (
-              <span className="text-xs text-gray-500 truncate">
-                {selectedClip.clip_title ?? selectedClip.title ?? "Untitled clip"}
-              </span>
-            )}
-          </div>
+          <TransportRow
+            isPlaying={p.isPlaying}
+            isLooping={p.isLooping}
+            isPreviewing={p.isPreviewing}
+            displayTime={displayTime}
+            displayDuration={displayDuration}
+            onTogglePlay={p.onTogglePlay}
+            onSkipPrev={p.onSkipPrev}
+            onSkipNext={p.onSkipNext}
+            onToggleLoop={p.onToggleLoop}
+            onPlayAll={p.onPlayAll}
+            onStopPreviewing={p.onStopPreviewing}
+          />
+          <CaptionsRow
+            showCaptions={p.showCaptions}
+            selectedClip={p.selectedClip}
+            onToggleCaptions={p.onToggleCaptions}
+          />
         </div>
       )}
     </div>
