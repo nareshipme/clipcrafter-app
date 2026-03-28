@@ -52,11 +52,7 @@ export default function OutputsPage() {
   }
 
   if (!p.data || !p.isCompleted) {
-    return (
-      <div className="p-6 text-gray-400 text-sm">
-        Complete processing to view outputs.
-      </div>
-    );
+    return <div className="p-6 text-gray-400 text-sm">Complete processing to view outputs.</div>;
   }
 
   return (

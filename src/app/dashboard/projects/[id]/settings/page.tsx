@@ -37,8 +37,7 @@ export default function SettingsPage() {
         <h3 className="text-sm font-semibold text-gray-300">Source Video</h3>
         <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-gray-400">
           <p>
-            Status:{" "}
-            <span className="text-gray-200 font-medium">{p.data.status}</span>
+            Status: <span className="text-gray-200 font-medium">{p.data.status}</span>
           </p>
           {p.data.completed_at && (
             <p className="mt-1">

@@ -125,9 +125,7 @@ function InlineTitle({
 function statusBadgeClass(status: string): string {
   if (status === "completed") return "bg-green-500";
   if (status === "failed") return "bg-red-500";
-  if (
-    ["processing", "extracting_audio", "transcribing", "generating_highlights"].includes(status)
-  )
+  if (["processing", "extracting_audio", "transcribing", "generating_highlights"].includes(status))
     return "bg-yellow-500";
   return "bg-gray-500";
 }
@@ -224,9 +222,7 @@ function MiniPlayerStrip() {
         className="flex-1 h-1 accent-violet-500 cursor-pointer"
         aria-label="Seek"
       />
-      <span className="text-xs text-gray-500 font-mono shrink-0 w-10">
-        {formatTime(duration)}
-      </span>
+      <span className="text-xs text-gray-500 font-mono shrink-0 w-10">{formatTime(duration)}</span>
       <button
         type="button"
         onClick={togglePlay}
@@ -315,18 +311,11 @@ function LayoutShell({ id, children }: { id: string; children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-      <TopBar
-        title={title}
-        onSaveTitle={setTitleOverride}
-        projectId={id}
-        status={data?.status}
-      />
+      <TopBar title={title} onSaveTitle={setTitleOverride} projectId={id} status={data?.status} />
       <MiniPlayerStrip />
       <div className="flex flex-1 min-h-0">
         <DesktopNav id={id} />
-        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0 min-w-0">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0 min-w-0">{children}</main>
       </div>
       <BottomNav id={id} />
     </div>

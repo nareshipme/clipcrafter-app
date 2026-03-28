@@ -88,8 +88,7 @@ export function ProjectContextProvider({
   );
 
   const computedGraph = useMemo(
-    () =>
-      p.clips && p.clips.length > 0 ? buildComputedGraph(p.clips, p.topicOverrides) : null,
+    () => (p.clips && p.clips.length > 0 ? buildComputedGraph(p.clips, p.topicOverrides) : null),
     [p.clips, p.topicOverrides]
   );
 

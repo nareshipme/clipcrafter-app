@@ -17,11 +17,7 @@ export default function InsightsPage() {
   }
 
   if (!p.data || !p.isCompleted) {
-    return (
-      <div className="p-6 text-gray-400 text-sm">
-        Complete processing to view insights.
-      </div>
-    );
+    return <div className="p-6 text-gray-400 text-sm">Complete processing to view insights.</div>;
   }
 
   return (
