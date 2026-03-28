@@ -82,7 +82,6 @@ function ViewToggle({
   );
 }
 
-
 function GenerateControls({
   clipCount,
   clipPrompt,
