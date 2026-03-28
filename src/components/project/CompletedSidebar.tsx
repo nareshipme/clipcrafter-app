@@ -67,7 +67,7 @@ function ViewToggle({
           onClick={() => onSwitchView(m)}
           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors min-h-[32px] ${viewMode === m ? "bg-violet-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}
         >
-          {m === "list" ? "≡ List" : "⬡ Graph"}
+          {m === "list" ? "✦ Highlights" : "⬡ Knowledge Graph"}
         </button>
       ))}
     </div>
