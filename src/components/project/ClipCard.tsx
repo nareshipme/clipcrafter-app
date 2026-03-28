@@ -20,7 +20,7 @@ export function ScoreBadge({ score }: { score: number }) {
   const display = score === 0 ? "—" : String(score);
   const colorClass = score === 0 ? "bg-gray-700 text-gray-400" : scoreColor(score);
   return (
-    <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${colorClass}`}>
+    <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${colorClass}`}>
       {display}
     </span>
   );
@@ -30,9 +30,8 @@ function ClipExportControl({ clip, onExport }: { clip: Clip; onExport: (clipId: 
   if (clip.status === "exported" && clip.export_url) {
     return (
       <a
-        href={clip.export_url}
-        target="_blank"
-        rel="noreferrer"
+        href={`/api/clips/${clip.id}/download`}
+        download={`${clip.clip_title ?? clip.title ?? "clip"}.mp4`}
         onClick={(e) => e.stopPropagation()}
         className="ml-auto px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded-lg text-xs font-semibold text-white transition-colors min-h-[44px] flex items-center"
       >
@@ -134,6 +133,45 @@ export interface ClipCardProps {
   topicOverrides?: Record<string, string>;
 }
 
+function ClipTimingRow({
+  clip,
+  videoRef,
+  onClipAction,
+}: {
+  clip: Clip;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  onClipAction: ClipCardProps["onClipAction"];
+}) {
+  const [trimOpen, setTrimOpen] = useState(false);
+  const dur = clip.duration_sec?.toFixed(1) ?? (clip.end_sec - clip.start_sec).toFixed(1);
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-gray-400 font-mono flex-1">
+          {formatTime(clip.start_sec)} → {formatTime(clip.end_sec)} · {dur}s
+        </span>
+        {videoRef && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTrimOpen((o) => !o);
+            }}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded bg-gray-800 hover:bg-gray-700"
+          >
+            ✂️ Trim {trimOpen ? "▴" : "▾"}
+          </button>
+        )}
+      </div>
+      {trimOpen && videoRef && (
+        <div className="mt-2">
+          <ClipTimingEditor clip={clip} videoRef={videoRef} onClipAction={onClipAction} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClipActions({
   clip,
   onClipAction,
@@ -144,7 +182,7 @@ function ClipActions({
   onExportClip: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         aria-label="Keep clip"
@@ -165,28 +203,44 @@ function ClipActions({
       >
         {clip.status === "rejected" ? "✗ Skipped" : "Skip"}
       </button>
+      <ClipExportControl clip={clip} onExport={onExportClip} />
+    </div>
+  );
+}
+
+function ClipExportSettings({
+  clip,
+  onClipAction,
+}: {
+  clip: Clip;
+  onClipAction: ClipCardProps["onClipAction"];
+}) {
+  if (clip.status !== "approved") return null;
+  return (
+    <div className="flex items-center gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
+      <span className="text-xs text-gray-500">Caption:</span>
       <select
         aria-label="Caption style"
         value={clip.caption_style}
         onChange={(e) => onClipAction(clip.id, { caption_style: e.target.value as CaptionStyle })}
-        className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[44px]"
+        className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-1.5 py-1"
       >
         <option value="hormozi">Hormozi</option>
         <option value="modern">Modern</option>
         <option value="neon">Neon</option>
         <option value="minimal">Minimal</option>
       </select>
+      <span className="text-xs text-gray-500 ml-2">Ratio:</span>
       <select
         aria-label="Aspect ratio"
         value={clip.aspect_ratio}
         onChange={(e) => onClipAction(clip.id, { aspect_ratio: e.target.value })}
-        className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded-lg px-2 py-1.5 min-h-[44px]"
+        className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-1.5 py-1"
       >
         <option value="9:16">9:16</option>
         <option value="1:1">1:1</option>
         <option value="16:9">16:9</option>
       </select>
-      <ClipExportControl clip={clip} onExport={onExportClip} />
     </div>
   );
 }
@@ -198,8 +252,7 @@ function clipBorderClass(isSelected: boolean, status: Clip["status"]): string {
 }
 
 function ClipHashtags({ hashtags }: { hashtags: string[] }) {
-  const visible = hashtags.slice(0, 3);
-  const extra = hashtags.length - 3;
+  const visible = hashtags.slice(0, 2);
   return (
     <div className="flex flex-wrap gap-1 mb-3">
       {visible.map((tag) => (
@@ -207,7 +260,6 @@ function ClipHashtags({ hashtags }: { hashtags: string[] }) {
           {tag}
         </span>
       ))}
-      {extra > 0 && <span className="text-xs text-gray-500 px-2 py-0.5">+{extra} more</span>}
     </div>
   );
 }
@@ -226,9 +278,10 @@ function ClipFooter({
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
-        <ClipActions clip={clip} onClipAction={onClipAction} onExportClip={onExportClip} />
-        {clipSegments.length > 0 && (
+      <ClipActions clip={clip} onClipAction={onClipAction} onExportClip={onExportClip} />
+      <ClipExportSettings clip={clip} onClipAction={onClipAction} />
+      {clipSegments.length > 0 && (
+        <div className="mt-2">
           <button
             type="button"
             onClick={(e) => {
@@ -239,9 +292,9 @@ function ClipFooter({
           >
             📝 Transcript {transcriptOpen ? "▴" : "▾"}
           </button>
-        )}
-      </div>
-      {transcriptOpen && clipSegments.length > 0 && <ClipTranscript segments={clipSegments} />}
+          {transcriptOpen && <ClipTranscript segments={clipSegments} />}
+        </div>
+      )}
     </>
   );
 }
@@ -269,29 +322,6 @@ function ClipTopicBadge({
     <span className="text-xs bg-violet-900/50 text-violet-300 border border-violet-700/50 px-2 py-0.5 rounded-full">
       🏷 {displayTopic}
     </span>
-  );
-}
-
-function ClipTimingDisplay({
-  clip,
-  videoRef,
-  onClipAction,
-}: {
-  clip: Clip;
-  videoRef?: React.RefObject<HTMLVideoElement | null>;
-  onClipAction: ClipCardProps["onClipAction"];
-}) {
-  if (videoRef) {
-    return <ClipTimingEditor clip={clip} videoRef={videoRef} onClipAction={onClipAction} />;
-  }
-  const dur = clip.duration_sec?.toFixed(1) ?? (clip.end_sec - clip.start_sec).toFixed(1);
-  return (
-    <div className="flex items-center gap-3 text-xs text-gray-400 font-mono">
-      <span>
-        {formatTime(clip.start_sec)} → {formatTime(clip.end_sec)}
-      </span>
-      <span className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-300">{dur}s</span>
-    </div>
   );
 }
 
@@ -342,8 +372,8 @@ export function ClipCard({
           {clip.clip_title ?? clip.title ?? "Untitled clip"}
         </p>
       </div>
-      <div className="mb-2" onClick={(e) => e.stopPropagation()}>
-        <ClipTimingDisplay clip={clip} videoRef={videoRef} onClipAction={onClipAction} />
+      <div className="mb-2">
+        <ClipTimingRow clip={clip} videoRef={videoRef} onClipAction={onClipAction} />
       </div>
       {clip.hashtags?.length > 0 && <ClipHashtags hashtags={clip.hashtags} />}
       <ClipFooter

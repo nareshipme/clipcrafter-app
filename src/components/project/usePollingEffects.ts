@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { StatusData, Clip, TERMINAL_STATUSES } from "./types";
 
 // Max time to poll before declaring a stall (10 minutes)
@@ -88,11 +88,30 @@ export function useClipsPolling({
   }, [clipsStatus, fetchClips, setClipsStatus]);
 }
 
+export function useExportPolling(
+  clips: import("./types").Clip[] | null,
+  fetchClips: () => Promise<string | undefined>
+) {
+  const hasExporting = clips?.some((c) => c.status === "exporting") ?? false;
+  useEffect(() => {
+    if (!hasExporting) return;
+    const t = setInterval(() => {
+      fetchClips();
+    }, 3000);
+    return () => clearInterval(t);
+  }, [hasExporting, fetchClips]);
+}
+
 export function useAutoSelectClips(
   clips: Clip[] | null,
   setSelectedClipIds: React.Dispatch<React.SetStateAction<Set<string>>>
 ) {
+  const initializedRef = React.useRef(false);
   useEffect(() => {
-    if (clips && clips.length > 0) setSelectedClipIds(new Set(clips.map((c) => c.id)));
+    // Only auto-select on first load — never override user's selection on subsequent polls
+    if (!initializedRef.current && clips && clips.length > 0) {
+      initializedRef.current = true;
+      setSelectedClipIds(new Set(clips.map((c) => c.id)));
+    }
   }, [clips, setSelectedClipIds]);
 }

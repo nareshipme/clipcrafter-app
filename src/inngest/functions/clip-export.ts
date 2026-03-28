@@ -114,6 +114,8 @@ type ClipRow = {
   caption_style: string;
   aspect_ratio: string;
   project_id: string;
+  clip_title: string | null;
+  title: string | null;
 };
 
 export async function clipExportHandler(
@@ -128,7 +130,9 @@ export async function clipExportHandler(
     const stepOneResult = (await step.run("fetch-clip-and-project", async () => {
       const { data: clipData, error: clipError } = await supabaseAdmin
         .from("clips")
-        .select("id, start_sec, end_sec, caption_style, aspect_ratio, project_id")
+        .select(
+          "id, start_sec, end_sec, caption_style, aspect_ratio, project_id, clip_title, title"
+        )
         .eq("id", clipId)
         .single();
       if (clipError || !clipData) throw new Error(`Clip ${clipId} not found`);
@@ -220,9 +224,25 @@ export async function clipExportHandler(
         })
       );
 
+      // Build a safe filename for Content-Disposition
+      const rawTitle = clip.clip_title ?? clip.title ?? `clip-${clipId}`;
+      const safeFilename =
+        rawTitle
+          .replace(/[^a-z0-9\s-]/gi, "")
+          .trim()
+          .replace(/\s+/g, "-")
+          .slice(0, 80) || `clip-${clipId}`;
+      const filename = `${safeFilename}.mp4`;
+
       const presignedUrl = await getSignedUrl(
         r2Client,
-        new GetObjectCommand({ Bucket: R2_BUCKET, Key: exportKey }),
+        new GetObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: exportKey,
+          // Forces download instead of inline play in mobile browsers
+          ResponseContentDisposition: `attachment; filename="${filename}"`,
+          ResponseContentType: "video/mp4",
+        }),
         { expiresIn: 7 * 24 * 3600 }
       );
 

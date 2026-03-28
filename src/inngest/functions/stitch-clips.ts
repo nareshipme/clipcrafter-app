@@ -182,8 +182,13 @@ export async function stitchClipsHandler(
     );
   });
 
-  // ── Step 5: save stitch_url to projects table ──
+  // ── Step 5: save to stitched_exports + keep projects.stitch_url for backwards compat ──
   await step.run("save-stitch-url", async () => {
+    await supabaseAdmin.from("stitched_exports").insert({
+      project_id: projectId,
+      clip_ids: clipIds,
+      export_url: stitchUrl,
+    });
     await supabaseAdmin.from("projects").update({ stitch_url: stitchUrl }).eq("id", projectId);
   });
 
