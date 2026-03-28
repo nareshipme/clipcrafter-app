@@ -78,7 +78,10 @@ function OverflowMenu({
         <div className="absolute left-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-lg shadow-lg min-w-[160px] overflow-hidden">
           <button
             type="button"
-            onClick={() => { onToggleCaptions(); setOpen(false); }}
+            onClick={() => {
+              onToggleCaptions();
+              setOpen(false);
+            }}
             className="w-full text-left px-4 py-2.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors"
           >
             Caption: {withCaptions ? "ON" : "OFF"}
@@ -86,7 +89,10 @@ function OverflowMenu({
           {onStitchExport && selectedClipIds.size > 1 && (
             <button
               type="button"
-              onClick={() => { onStitchExport!(); setOpen(false); }}
+              onClick={() => {
+                onStitchExport!();
+                setOpen(false);
+              }}
               className="w-full text-left px-4 py-2.5 text-xs text-gray-300 hover:bg-gray-800 transition-colors"
             >
               Stitch & Export ({selectedClipIds.size})
