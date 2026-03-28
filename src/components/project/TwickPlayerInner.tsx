@@ -286,99 +286,123 @@ function CaptionsRow({
   );
 }
 
+type VideoAreaProps = {
+  isYouTube: boolean;
+  youTubeVideoId: string | null;
+  selectedClipId: string | null;
+  clips: Clip[] | null;
+  projectData: ReturnType<typeof buildProjectData>;
+  isPlaying: boolean;
+  captionText: string | null;
+  onTimeUpdate: (t: number) => void;
+  onDurationChange: (d: number) => void;
+};
+
+function TwickVideoArea(p: VideoAreaProps) {
+  return (
+    <div className="relative bg-black flex-1 min-h-0 flex items-center justify-center">
+      {p.isYouTube && p.youTubeVideoId ? (
+        <YoutubeDisplay
+          youTubeVideoId={p.youTubeVideoId}
+          selectedClipId={p.selectedClipId}
+          clips={p.clips}
+        />
+      ) : (
+        <>
+          <LivePlayer
+            projectData={p.projectData}
+            videoSize={{ width: 1920, height: 1080 }}
+            playing={p.isPlaying}
+            onTimeUpdate={p.onTimeUpdate}
+            onDurationChange={p.onDurationChange}
+          />
+          {p.captionText && (
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6 pointer-events-none">
+              <span className="bg-black/75 text-white text-sm font-medium px-3 py-1.5 rounded-lg text-center max-w-lg">
+                {p.captionText}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function TwickPlayerInner(p: Props) {
   const { onTimeUpdate, onLoadedMetadata } = p;
   const [localTime, setLocalTime] = useState(p.currentTime);
   const [localDuration, setLocalDuration] = useState(p.duration);
-
   const projectData = useMemo(
     () => buildProjectData(p.videoUrl, localDuration),
     [p.videoUrl, localDuration]
   );
-
   const handleTimeUpdate = useCallback(
-    (time: number) => {
-      setLocalTime(time);
+    (t: number) => {
+      setLocalTime(t);
       onTimeUpdate();
     },
     [onTimeUpdate]
   );
-
   const handleDurationChange = useCallback(
-    (dur: number) => {
-      setLocalDuration(dur);
+    (d: number) => {
+      setLocalDuration(d);
       onLoadedMetadata();
     },
     [onLoadedMetadata]
   );
-
   const displayTime = localTime;
   const displayDuration = localDuration > 0 ? localDuration : p.duration;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <div className="relative bg-black flex-1 min-h-0 flex items-center justify-center">
-        {p.isYouTube && p.youTubeVideoId ? (
-          <YoutubeDisplay
-            youTubeVideoId={p.youTubeVideoId}
+      <TwickVideoArea
+        isYouTube={p.isYouTube}
+        youTubeVideoId={p.youTubeVideoId}
+        selectedClipId={p.selectedClipId}
+        clips={p.clips}
+        projectData={projectData}
+        isPlaying={p.isPlaying}
+        captionText={p.captionText}
+        onTimeUpdate={handleTimeUpdate}
+        onDurationChange={handleDurationChange}
+      />
+      {!p.isYouTube && (
+        <>
+          <TwickScrubber
+            timelineRef={p.timelineRef}
+            sortedClips={p.sortedClips}
             selectedClipId={p.selectedClipId}
-            clips={p.clips}
-          />
-        ) : (
-          <>
-            <LivePlayer
-              projectData={projectData}
-              videoSize={{ width: 1920, height: 1080 }}
-              playing={p.isPlaying}
-              onTimeUpdate={handleTimeUpdate}
-              onDurationChange={handleDurationChange}
-            />
-            {p.captionText && (
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6 pointer-events-none">
-                <span className="bg-black/75 text-white text-sm font-medium px-3 py-1.5 rounded-lg text-center max-w-lg">
-                  {p.captionText}
-                </span>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      {!p.isYouTube && (
-        <TwickScrubber
-          timelineRef={p.timelineRef}
-          sortedClips={p.sortedClips}
-          selectedClipId={p.selectedClipId}
-          displayTime={displayTime}
-          displayDuration={displayDuration}
-          onTimelineClick={p.onTimelineClick}
-          onHandleMouseDown={p.onHandleMouseDown}
-          onSetSelectedClipId={p.onSetSelectedClipId}
-          onSeekToClip={p.onSeekToClip}
-        />
-      )}
-      {!p.isYouTube && (
-        <div className="shrink-0 bg-gray-900 border-t border-gray-800 px-4 py-3 flex flex-col gap-2">
-          <TransportRow
-            isPlaying={p.isPlaying}
-            isLooping={p.isLooping}
-            isPreviewing={p.isPreviewing}
             displayTime={displayTime}
             displayDuration={displayDuration}
-            onTogglePlay={p.onTogglePlay}
-            onSkipPrev={p.onSkipPrev}
-            onSkipNext={p.onSkipNext}
-            onToggleLoop={p.onToggleLoop}
-            onPlayAll={p.onPlayAll}
-            onStopPreviewing={p.onStopPreviewing}
+            onTimelineClick={p.onTimelineClick}
+            onHandleMouseDown={p.onHandleMouseDown}
+            onSetSelectedClipId={p.onSetSelectedClipId}
+            onSeekToClip={p.onSeekToClip}
           />
-          <CaptionsRow
-            showCaptions={p.showCaptions}
-            selectedClip={p.selectedClip}
-            onToggleCaptions={p.onToggleCaptions}
-          />
-        </div>
+          <div className="shrink-0 bg-gray-900 border-t border-gray-800 px-4 py-3 flex flex-col gap-2">
+            <TransportRow
+              isPlaying={p.isPlaying}
+              isLooping={p.isLooping}
+              isPreviewing={p.isPreviewing}
+              displayTime={displayTime}
+              displayDuration={displayDuration}
+              onTogglePlay={p.onTogglePlay}
+              onSkipPrev={p.onSkipPrev}
+              onSkipNext={p.onSkipNext}
+              onToggleLoop={p.onToggleLoop}
+              onPlayAll={p.onPlayAll}
+              onStopPreviewing={p.onStopPreviewing}
+            />
+            <CaptionsRow
+              showCaptions={p.showCaptions}
+              selectedClip={p.selectedClip}
+              onToggleCaptions={p.onToggleCaptions}
+            />
+          </div>
+        </>
       )}
     </div>
   );
