@@ -50,6 +50,39 @@ function clipBarColor(clip: Clip, isSelected: boolean): string {
   return isSelected ? "bg-violet-500/70" : "bg-violet-600/50";
 }
 
+function makeMouseEventFromTouch(touch: React.Touch): React.MouseEvent {
+  return {
+    clientX: touch.clientX,
+    stopPropagation: () => {},
+    preventDefault: () => {},
+  } as unknown as React.MouseEvent;
+}
+
+function ClipHandle({
+  clipId,
+  side,
+  onHandleMouseDown,
+}: {
+  clipId: string;
+  side: "start" | "end";
+  onHandleMouseDown: (e: React.MouseEvent, clipId: string, side: "start" | "end") => void;
+}) {
+  const posClass = side === "start" ? "left-0" : "right-0";
+  return (
+    <div
+      className={`absolute ${posClass} top-0 bottom-0 w-6 cursor-ew-resize flex items-center justify-center touch-none`}
+      onMouseDown={(e) => onHandleMouseDown(e, clipId, side)}
+      onTouchStart={(e) => {
+        e.stopPropagation();
+        onHandleMouseDown(makeMouseEventFromTouch(e.touches[0]), clipId, side);
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="w-1.5 h-8 bg-white/80 rounded-full" />
+    </div>
+  );
+}
+
 function TimelineScrubber({
   timelineRef,
   sortedClips,
@@ -94,20 +127,8 @@ function TimelineScrubber({
                 onSeekToClip(clip);
               }}
             >
-              <div
-                className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize flex items-center justify-center"
-                onMouseDown={(e) => onHandleMouseDown(e, clip.id, "start")}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="w-1 h-6 bg-white/60 rounded-full" />
-              </div>
-              <div
-                className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize flex items-center justify-center"
-                onMouseDown={(e) => onHandleMouseDown(e, clip.id, "end")}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="w-1 h-6 bg-white/60 rounded-full" />
-              </div>
+              <ClipHandle clipId={clip.id} side="start" onHandleMouseDown={onHandleMouseDown} />
+              <ClipHandle clipId={clip.id} side="end" onHandleMouseDown={onHandleMouseDown} />
             </div>
           );
         })}
