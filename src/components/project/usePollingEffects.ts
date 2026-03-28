@@ -88,6 +88,20 @@ export function useClipsPolling({
   }, [clipsStatus, fetchClips, setClipsStatus]);
 }
 
+export function useExportPolling(
+  clips: import("./types").Clip[] | null,
+  fetchClips: () => Promise<string | undefined>
+) {
+  const hasExporting = clips?.some((c) => c.status === "exporting") ?? false;
+  useEffect(() => {
+    if (!hasExporting) return;
+    const t = setInterval(() => {
+      fetchClips();
+    }, 3000);
+    return () => clearInterval(t);
+  }, [hasExporting, fetchClips]);
+}
+
 export function useAutoSelectClips(
   clips: Clip[] | null,
   setSelectedClipIds: React.Dispatch<React.SetStateAction<Set<string>>>

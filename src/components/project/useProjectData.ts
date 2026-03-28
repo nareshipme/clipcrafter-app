@@ -22,7 +22,12 @@ import {
 } from "./videoControls";
 import { useLoadArtifacts } from "./useDataFetchers";
 import { useFetchClips } from "./useFetchClips";
-import { useStatusPolling, useClipsPolling, useAutoSelectClips } from "./usePollingEffects";
+import {
+  useStatusPolling,
+  useClipsPolling,
+  useAutoSelectClips,
+  useExportPolling,
+} from "./usePollingEffects";
 import { useProjectState } from "./useProjectState";
 
 export type { ProjectDataResult } from "./projectDataTypes";
@@ -253,6 +258,7 @@ export function useProjectData(id: string): ProjectDataResult {
   useStatusPolling({ data, fetchStatus });
   useClipsPolling({ dataStatus: data?.status, clips, id, clipsStatus, fetchClips, setClipsStatus });
   useAutoSelectClips(clips, s.setSelectedClipIds);
+  useExportPolling(clips, fetchClips);
 
   const lr: LocalRefs = { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef };
   const projectHandlers = buildProjectHandlers({
