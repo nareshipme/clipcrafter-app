@@ -315,25 +315,25 @@ function SkippedList({ clips, onRestore }: { clips: Clip[]; onRestore: (id: stri
 }
 
 function useExportReadyToast(clips: Clip[] | null) {
-  // Track which clip IDs we've already toasted — persists across re-renders/re-fetches
+  // IDs we've already shown a toast for — avoids duplicates across re-renders/polls
   const notifiedIds = useRef<Set<string>>(new Set());
+  // Whether we've completed the initial seed (can't use notifiedIds.size — it stays 0
+  // when no clips are exported yet on first load, causing a false "first-load" on every poll)
+  const initialized = useRef(false);
 
   useEffect(() => {
     if (!clips) return;
-    clips.forEach((clip) => {
-      if (clip.status === "exported" && !notifiedIds.current.has(clip.id)) {
-        // Only toast for clips that just became exported in this session (not on page load)
-        // We initialize the set on first load, then only toast for new transitions
-      }
-    });
-    // On first load, seed notifiedIds with all already-exported clips so we don't toast them
-    if (notifiedIds.current.size === 0) {
+
+    if (!initialized.current) {
+      // Seed with all already-exported clips on first load so we don't toast them
+      initialized.current = true;
       clips.forEach((clip) => {
         if (clip.status === "exported") notifiedIds.current.add(clip.id);
       });
       return;
     }
-    // On subsequent updates, toast only newly exported clips
+
+    // Subsequent polls: toast only clips that newly transitioned to "exported"
     clips.forEach((clip) => {
       if (clip.status === "exported" && !notifiedIds.current.has(clip.id)) {
         notifiedIds.current.add(clip.id);
