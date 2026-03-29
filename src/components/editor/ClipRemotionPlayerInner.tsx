@@ -14,6 +14,10 @@ export interface ClipRemotionPlayerInnerProps {
   captionSize: "sm" | "md" | "lg";
   captionStyle?: "hormozi" | "modern" | "neon" | "minimal";
   aspectRatio: "9:16" | "16:9";
+  cropMode?: "contain" | "cover" | "face" | "custom";
+  cropX?: number;
+  cropY?: number;
+  cropZoom?: number;
 }
 
 export function ClipRemotionPlayerInner({
@@ -25,6 +29,10 @@ export function ClipRemotionPlayerInner({
   captionSize,
   captionStyle = "hormozi",
   aspectRatio,
+  cropMode = "cover",
+  cropX = 50,
+  cropY = 50,
+  cropZoom = 1,
 }: ClipRemotionPlayerInnerProps) {
   const fps = 30;
   const durationInFrames = Math.max(1, Math.round((endSec - startSec) * fps));
@@ -59,6 +67,10 @@ export function ClipRemotionPlayerInner({
         captionPosition,
         captionSize,
         aspectRatio,
+        cropMode,
+        cropX,
+        cropY,
+        cropZoom,
       }}
       durationInFrames={durationInFrames}
       compositionWidth={compositionWidth}

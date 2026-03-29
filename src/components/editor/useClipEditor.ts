@@ -21,6 +21,14 @@ export interface ClipEditorState {
   captionPosition: "top" | "center" | "bottom";
   captionSize: "sm" | "md" | "lg";
   format: "9:16" | "16:9";
+  cropMode: "contain" | "cover" | "face" | "custom";
+  cropX: number;
+  cropY: number;
+  cropZoom: number;
+  setCropMode: (v: "contain" | "cover" | "face" | "custom") => void;
+  setCropX: (v: number) => void;
+  setCropY: (v: number) => void;
+  setCropZoom: (v: number) => void;
   currentTime: number;
   videoDuration: number;
   exporting: boolean;
@@ -231,6 +239,10 @@ function useEditorStyleState() {
   const [captionPosition, setCaptionPosition] = useState<"top" | "center" | "bottom">("bottom");
   const [captionSize, setCaptionSize] = useState<"sm" | "md" | "lg">("md");
   const [format, setFormat] = useState<"9:16" | "16:9">("9:16");
+  const [cropMode, setCropMode] = useState<"contain" | "cover" | "face" | "custom">("cover");
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
+  const [cropZoom, setCropZoom] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   return {
@@ -240,6 +252,14 @@ function useEditorStyleState() {
     setCaptionSize,
     format,
     setFormat,
+    cropMode,
+    setCropMode,
+    cropX,
+    setCropX,
+    cropY,
+    setCropY,
+    cropZoom,
+    setCropZoom,
     currentTime,
     setCurrentTime,
     videoDuration,
@@ -332,6 +352,14 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
     setCaptionPosition: style.setCaptionPosition,
     setCaptionSize: style.setCaptionSize,
     setFormat: style.setFormat,
+    cropMode: style.cropMode,
+    cropX: style.cropX,
+    cropY: style.cropY,
+    cropZoom: style.cropZoom,
+    setCropMode: style.setCropMode,
+    setCropX: style.setCropX,
+    setCropY: style.setCropY,
+    setCropZoom: style.setCropZoom,
     setCurrentTime: style.setCurrentTime,
     setVideoDuration: style.setVideoDuration,
     schedulePatch,

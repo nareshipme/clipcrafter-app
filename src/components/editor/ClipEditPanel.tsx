@@ -177,6 +177,122 @@ function CaptionSection({
   );
 }
 
+const CROP_MODES = [
+  { value: "contain" as const, label: "Fit", desc: "Show full video" },
+  { value: "cover" as const, label: "Fill", desc: "Auto-crop center" },
+  { value: "face" as const, label: "Face", desc: "Crop, anchor top" },
+  { value: "custom" as const, label: "Custom", desc: "Manual zoom/pan" },
+];
+
+type CropSectionProps = Pick<
+  ClipEditorState,
+  | "cropMode"
+  | "cropX"
+  | "cropY"
+  | "cropZoom"
+  | "setCropMode"
+  | "setCropX"
+  | "setCropY"
+  | "setCropZoom"
+>;
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <span>{label}</span>
+        <span>{display}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-violet-500"
+      />
+    </div>
+  );
+}
+
+function CropSection({
+  cropMode,
+  cropX,
+  cropY,
+  cropZoom,
+  setCropMode,
+  setCropX,
+  setCropY,
+  setCropZoom,
+}: CropSectionProps) {
+  return (
+    <div className="border-t border-gray-800 pt-4 flex flex-col gap-3">
+      <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Video Framing</p>
+      <div className="grid grid-cols-2 gap-2">
+        {CROP_MODES.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            onClick={() => setCropMode(m.value)}
+            className={`py-2 px-3 rounded-lg text-left transition-colors ${cropMode === m.value ? "bg-violet-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+          >
+            <div className="text-xs font-semibold">{m.label}</div>
+            <div className="text-[10px] opacity-70">{m.desc}</div>
+          </button>
+        ))}
+      </div>
+      {cropMode === "custom" && (
+        <div className="flex flex-col gap-3 mt-1">
+          <Slider
+            label="Zoom"
+            value={cropZoom}
+            min={1}
+            max={3}
+            step={0.05}
+            display={`${cropZoom.toFixed(1)}×`}
+            onChange={setCropZoom}
+          />
+          <Slider
+            label="Pan X"
+            value={cropX}
+            min={0}
+            max={100}
+            step={1}
+            display={`${cropX}%`}
+            onChange={(v) => setCropX(Math.round(v))}
+          />
+          <Slider
+            label="Pan Y"
+            value={cropY}
+            min={0}
+            max={100}
+            step={1}
+            display={`${cropY}%`}
+            onChange={(v) => setCropY(Math.round(v))}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExportSection({
   format,
   exporting,
@@ -247,6 +363,16 @@ export function ClipEditPanel({ clipId, editor }: ClipEditPanelProps) {
         captionSize={editor.captionSize}
         setCaptionPosition={editor.setCaptionPosition}
         setCaptionSize={editor.setCaptionSize}
+      />
+      <CropSection
+        cropMode={editor.cropMode}
+        cropX={editor.cropX}
+        cropY={editor.cropY}
+        cropZoom={editor.cropZoom}
+        setCropMode={editor.setCropMode}
+        setCropX={editor.setCropX}
+        setCropY={editor.setCropY}
+        setCropZoom={editor.setCropZoom}
       />
       <ExportSection
         format={editor.format}

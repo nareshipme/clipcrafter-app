@@ -35,6 +35,44 @@ function BackBar({ projectId, title }: { projectId: string; title: string }) {
   );
 }
 
+// ── Player pane ───────────────────────────────────────────────────────────────
+
+function PlayerPane({
+  editor,
+  captionStyle,
+}: {
+  editor: ReturnType<typeof useClipEditor>;
+  captionStyle: CaptionStyle;
+}) {
+  return (
+    <div className="lg:w-[60%] bg-black flex items-center justify-center p-4 overflow-hidden min-h-[300px] lg:min-h-0">
+      <div
+        className="w-full h-full flex items-center justify-center"
+        style={{
+          aspectRatio: editor.format === "16:9" ? "16/9" : "9/16",
+          maxHeight: "100%",
+          maxWidth: editor.format === "16:9" ? "100%" : "50%",
+        }}
+      >
+        <ClipRemotionPlayer
+          videoSrc={editor.data!.videoUrl}
+          startSec={editor.startSec}
+          endSec={editor.endSec}
+          captions={editor.captions}
+          captionPosition={editor.captionPosition}
+          captionSize={editor.captionSize}
+          captionStyle={captionStyle}
+          aspectRatio={editor.format}
+          cropMode={editor.cropMode}
+          cropX={editor.cropX}
+          cropY={editor.cropY}
+          cropZoom={editor.cropZoom}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ClipEditorPage({
@@ -79,31 +117,7 @@ export default function ClipEditorPage({
       <BackBar projectId={projectId} title={editor.title} />
 
       <div className="flex flex-col lg:flex-row flex-1 min-h-0">
-        {/* Player — 60% on desktop, centers the composition at its native aspect ratio */}
-        <div className="lg:w-[60%] bg-black flex items-center justify-center p-4 overflow-hidden min-h-[300px] lg:min-h-0">
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{
-              // Constrain the player to fit inside the container at the correct aspect ratio
-              aspectRatio: editor.format === "16:9" ? "16/9" : "9/16",
-              maxHeight: "100%",
-              maxWidth: editor.format === "16:9" ? "100%" : "50%",
-            }}
-          >
-            <ClipRemotionPlayer
-              videoSrc={editor.data.videoUrl}
-              startSec={editor.startSec}
-              endSec={editor.endSec}
-              captions={editor.captions}
-              captionPosition={editor.captionPosition}
-              captionSize={editor.captionSize}
-              captionStyle={captionStyle}
-              aspectRatio={editor.format}
-            />
-          </div>
-        </div>
-
-        {/* Edit panel — 40% on desktop */}
+        <PlayerPane editor={editor} captionStyle={captionStyle} />
         <ClipEditPanel projectId={projectId} clipId={clipId} editor={editor} />
       </div>
 

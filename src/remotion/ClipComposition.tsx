@@ -86,6 +86,20 @@ export interface ClipCompositionProps {
   captionSize?: "sm" | "md" | "lg";
   /** Output aspect ratio */
   aspectRatio?: "9:16" | "16:9" | "1:1";
+  /**
+   * Video crop/zoom mode:
+   * - "contain": letterbox/pillarbox, full video visible (default)
+   * - "cover": auto-crop to fill canvas, centered
+   * - "face": crop to fill, anchored to top (keeps faces in frame for portrait)
+   * - "custom": use cropX / cropY / cropZoom for manual control
+   */
+  cropMode?: "contain" | "cover" | "face" | "custom";
+  /** Custom crop X position 0–100 (left–right), only used when cropMode="custom" */
+  cropX?: number;
+  /** Custom crop Y position 0–100 (top–bottom), only used when cropMode="custom" */
+  cropY?: number;
+  /** Custom zoom level 1–3, only used when cropMode="custom" */
+  cropZoom?: number;
 }
 
 // ── Single caption renderer ───────────────────────────────────────────────────
@@ -125,6 +139,35 @@ function CaptionItem({
 
 // ── Main composition ──────────────────────────────────────────────────────────
 
+function getVideoStyle(
+  cropMode: ClipCompositionProps["cropMode"],
+  cropX: number,
+  cropY: number,
+  cropZoom: number
+): React.CSSProperties {
+  if (cropMode === "contain") {
+    return { width: "100%", height: "100%", objectFit: "contain" };
+  }
+  if (cropMode === "cover") {
+    return { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 50%" };
+  }
+  if (cropMode === "face") {
+    // Anchor to top-center — keeps face/head in frame for portrait videos
+    return { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 15%" };
+  }
+  // custom: use transform scale + translate for precise zoom/pan
+  const scale = Math.max(1, cropZoom);
+  const tx = (cropX - 50) * (scale - 1) * -1;
+  const ty = (cropY - 50) * (scale - 1) * -1;
+  return {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    transform: `scale(${scale}) translate(${tx / scale}%, ${ty / scale}%)`,
+    transformOrigin: "center center",
+  };
+}
+
 export const ClipComposition: React.FC<ClipCompositionProps> = ({
   videoSrc,
   startSec,
@@ -134,6 +177,10 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
   withCaptions,
   captionPosition = "bottom",
   captionSize = "md",
+  cropMode = "contain",
+  cropX = 50,
+  cropY = 50,
+  cropZoom = 1,
 }) => {
   const { fps } = useVideoConfig();
   const clipDuration = endSec - startSec;
@@ -144,6 +191,8 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
     fontSize: CAPTION_FONT_SIZES[captionSize] ?? CAPTION_FONT_SIZES.md,
   };
 
+  const videoStyle = getVideoStyle(cropMode, cropX, cropY, cropZoom);
+
   return (
     <AbsoluteFill style={{ background: "#000" }}>
       {/* Source video trimmed to clip range */}
@@ -151,7 +200,7 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
         src={videoSrc}
         startFrom={Math.round(startSec * fps)}
         endAt={Math.round(endSec * fps)}
-        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        style={videoStyle}
       />
 
       {/* One Sequence per caption — shown only during [startMs, endMs) */}
