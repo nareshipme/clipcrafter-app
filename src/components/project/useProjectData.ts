@@ -102,10 +102,11 @@ interface VideoHandlerOpts {
   clips: Clip[] | null;
   setClips: React.Dispatch<React.SetStateAction<Clip[] | null>>;
   setSelectedClipId: (id: string | null) => void;
+  selectedTopic: string | null;
 }
 
 function buildVideoHandlers(opts: VideoHandlerOpts) {
-  const { s, lr, clips, setClips, setSelectedClipId } = opts;
+  const { s, lr, clips, setClips, setSelectedClipId, selectedTopic } = opts;
   const { videoRef, timelineRef, dragStateRef, previewClipIndexRef, previewClipsRef } = s;
   const { durationRef, isLoopingRef, isPreviewingRef, clipsRef, selectedClipIdRef } = lr;
   const refs = {
@@ -140,6 +141,8 @@ function buildVideoHandlers(opts: VideoHandlerOpts) {
       previewClipIndexRef,
       setIsPreviewing: s.setIsPreviewing,
       setSelectedClipId,
+      selectedClipIds: s.selectedClipIds,
+      selectedTopic,
     }),
     stopPreviewing: () => {
       s.setIsPreviewing(false);
@@ -239,8 +242,6 @@ export function useProjectData(id: string): ProjectDataResult {
       if (res.ok) {
         const json = await res.json();
         setData(json);
-        // forceRefreshUrl only on first load (artifacts === null) — avoids resetting
-        // <video src> mid-playback on subsequent status polls (reload-loop bug)
         if (json.status === "completed") loadArtifacts({ forceRefreshUrl: artifacts === null });
       }
     } finally {
@@ -261,10 +262,7 @@ export function useProjectData(id: string): ProjectDataResult {
   useClipsPolling({ dataStatus: data?.status, clips, id, clipsStatus, fetchClips, setClipsStatus });
   useAutoSelectClips(clips, s.setSelectedClipIds);
   useExportPolling(clips, fetchClips);
-
   useArtifactRefresh(data?.status, loadArtifacts);
-
-  const lr: LocalRefs = { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef };
   const projectHandlers = buildProjectHandlers({
     id,
     setLoading,
@@ -274,20 +272,24 @@ export function useProjectData(id: string): ProjectDataResult {
     setSelectedTopic,
     s,
   });
-  const videoHandlers = buildVideoHandlers({ s, lr, clips, setClips, setSelectedClipId });
-  return buildResult(
+  const videoHandlers = buildVideoHandlers({
     s,
-    {
-      data,
-      loading,
-      artifacts,
-      clips,
-      clipsStatus,
-      selectedTopic,
-      setSelectedTopic,
-      selectedClipId,
-      setSelectedClipId,
-    },
-    { ...projectHandlers, ...videoHandlers }
-  );
+    lr: { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef },
+    clips,
+    setClips,
+    setSelectedClipId,
+    selectedTopic,
+  });
+  const local: LocalState = {
+    data,
+    loading,
+    artifacts,
+    clips,
+    clipsStatus,
+    selectedTopic,
+    setSelectedTopic,
+    selectedClipId,
+    setSelectedClipId,
+  };
+  return buildResult(s, local, { ...projectHandlers, ...videoHandlers });
 }

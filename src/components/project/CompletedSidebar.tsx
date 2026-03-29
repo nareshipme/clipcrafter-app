@@ -32,7 +32,7 @@ export interface CompletedSidebarProps {
   onSeekToClip: (clip: Clip) => void;
   onToggleClipCheck: (clipId: string, checked: boolean) => void;
   onSelectAll: (ids: string[]) => void;
-  onDeselectAll: () => void;
+  onDeselectAll: (ids: string[]) => void;
   onToggleCaptions: () => void;
   onExportBatch: () => void;
   onClipAction: (
