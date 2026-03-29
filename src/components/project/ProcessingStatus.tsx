@@ -113,9 +113,10 @@ export function ProcessingStatus({ status, errorMessage, onRetry }: ProcessingSt
   return (
     <>
       {isProcessing && (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm text-gray-300 font-medium transition-all duration-500">
+        <div className="flex flex-col gap-3 w-full">
+          {/* Fixed-height container prevents layout shift when message text changes length */}
+          <div className="flex flex-col gap-1 w-full min-h-[48px]">
+            <p className="text-sm text-gray-300 font-medium transition-opacity duration-500 line-clamp-2">
               {message}
             </p>
             <p className="text-xs text-gray-600">Usually takes 2–3 min for a 30 min video</p>
@@ -125,8 +126,10 @@ export function ProcessingStatus({ status, errorMessage, onRetry }: ProcessingSt
       )}
       {status === "failed" && <FailedState errorMessage={errorMessage} onRetry={onRetry} />}
       {status === "pending" && (
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-gray-400 transition-all duration-500">{message}</p>
+        <div className="flex flex-col gap-1 w-full min-h-[48px]">
+          <p className="text-sm text-gray-400 transition-opacity duration-500 line-clamp-2">
+            {message}
+          </p>
           <p className="text-xs text-gray-600">Usually takes 2–3 min for a 30 min video</p>
         </div>
       )}
