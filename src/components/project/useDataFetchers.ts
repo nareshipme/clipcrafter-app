@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Artifact, Clip } from "./types";
 
@@ -14,8 +14,8 @@ interface ArtifactSetters {
 export function useLoadArtifacts(id: string, setters: ArtifactSetters) {
   const { setArtifacts, setVideoUrl, setIsYouTube, setYouTubeVideoId } = setters;
   return useCallback(
-    (artifacts: Record<string, Artifact> | null) => {
-      if (artifacts) return;
+    (_artifacts: Record<string, Artifact> | null) => {
+      // Always fetch fresh — presigned URLs expire after 7h and must be refreshed
       fetch(`/api/projects/${id}/artifacts`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
@@ -66,4 +66,16 @@ export function buildClipFetcher(args: ClipFetcherArgs) {
     }
     return status;
   };
+}
+
+/** Refresh presigned artifact URLs every 6 hours while the page is open (they expire at 7h). */
+export function useArtifactRefresh(
+  status: string | undefined,
+  loadArtifacts: (artifacts: Record<string, Artifact> | null) => void
+) {
+  useEffect(() => {
+    if (status !== "completed") return;
+    const interval = setInterval(() => loadArtifacts(null), 6 * 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [status, loadArtifacts]);
 }

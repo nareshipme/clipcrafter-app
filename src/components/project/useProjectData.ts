@@ -20,7 +20,7 @@ import {
   makeHandleTimelineClick,
   makeHandleHandleMouseDown,
 } from "./videoControls";
-import { useLoadArtifacts } from "./useDataFetchers";
+import { useLoadArtifacts, useArtifactRefresh } from "./useDataFetchers";
 import { useFetchClips } from "./useFetchClips";
 import {
   useStatusPolling,
@@ -259,6 +259,8 @@ export function useProjectData(id: string): ProjectDataResult {
   useClipsPolling({ dataStatus: data?.status, clips, id, clipsStatus, fetchClips, setClipsStatus });
   useAutoSelectClips(clips, s.setSelectedClipIds);
   useExportPolling(clips, fetchClips);
+
+  useArtifactRefresh(data?.status, loadArtifacts);
 
   const lr: LocalRefs = { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef };
   const projectHandlers = buildProjectHandlers({

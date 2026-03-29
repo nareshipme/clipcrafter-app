@@ -22,7 +22,7 @@ async function buildVideoArtifact(
     const url = await getSignedUrl(
       r2Client,
       new GetObjectCommand({ Bucket: R2_BUCKET, Key: r2Key }),
-      { expiresIn: 3600 }
+      { expiresIn: 7 * 3600 } // 7 hours — long enough for an editing session
     );
     return { url, label: "Video (MP4)", available: true };
   } catch {
@@ -38,7 +38,7 @@ async function buildAudioArtifact(
     const url = await getSignedUrl(
       r2Client,
       new GetObjectCommand({ Bucket: R2_BUCKET, Key: audioKey }),
-      { expiresIn: 3600 }
+      { expiresIn: 7 * 3600 }
     );
     return { url, label: "Audio (MP3)", available: true };
   } catch {
