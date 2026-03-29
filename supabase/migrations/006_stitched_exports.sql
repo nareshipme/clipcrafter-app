@@ -9,22 +9,30 @@ CREATE TABLE IF NOT EXISTS stitched_exports (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX stitched_exports_project_id_idx ON stitched_exports(project_id);
+CREATE INDEX IF NOT EXISTS stitched_exports_project_id_idx ON stitched_exports(project_id);
 
 -- RLS: users can only see their own stitched exports
 ALTER TABLE stitched_exports ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own stitched exports"
-  ON stitched_exports FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM projects
-      WHERE projects.id = stitched_exports.project_id
-        AND projects.user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stitched_exports' AND policyname = 'Users can view own stitched exports') THEN
+    CREATE POLICY "Users can view own stitched exports"
+      ON stitched_exports FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM projects
+          WHERE projects.id = stitched_exports.project_id
+            AND projects.user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
 
-CREATE POLICY "Service role full access to stitched_exports"
-  ON stitched_exports FOR ALL
-  USING (auth.role() = 'service_role')
-  WITH CHECK (auth.role() = 'service_role');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stitched_exports' AND policyname = 'Service role full access to stitched_exports') THEN
+    CREATE POLICY "Service role full access to stitched_exports"
+      ON stitched_exports FOR ALL
+      USING (auth.role() = 'service_role')
+      WITH CHECK (auth.role() = 'service_role');
+  END IF;
+END $$;
