@@ -7,8 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
  * GET /api/clips/[clipId]/download
- * Returns a fresh presigned R2 URL (redirect) so the browser can download the clip.
- * Re-signs the URL on every request to avoid stale presigned URL errors (7-day expiry).
+ * Issues a fresh presigned redirect so stale export_url values don't block downloads.
  */
 
 type ClipDownloadRow = {
@@ -29,18 +28,29 @@ function buildFilename(raw: string, clipId: string): string {
   );
 }
 
-/**
- * Extract the R2 object key from a presigned URL.
- * Presigned URL format: https://<accountId>.r2.cloudflarestorage.com/<bucket>/<key>?X-Amz-...
- * or via public domain. We extract the path after the bucket name.
- */
+/** Extract R2 object key from a presigned URL: /<bucket>/<key...> → <key...> */
 function extractR2Key(url: string): string | null {
   try {
-    const parsed = new URL(url);
-    const parts = parsed.pathname.split("/").filter(Boolean);
-    // pathname = /<bucket>/<key...> → skip bucket name (first segment)
-    if (parts.length < 2) return null;
-    return parts.slice(1).join("/");
+    const parts = new URL(url).pathname.split("/").filter(Boolean);
+    return parts.length >= 2 ? parts.slice(1).join("/") : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getFreshUrl(exportUrl: string, filename: string): Promise<string | null> {
+  const key = extractR2Key(exportUrl);
+  if (!key) return null;
+  try {
+    return await getSignedUrl(
+      r2Client,
+      new GetObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: key,
+        ResponseContentDisposition: `attachment; filename="${filename}.mp4"`,
+      }),
+      { expiresIn: 3600 }
+    );
   } catch {
     return null;
   }
@@ -71,31 +81,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cli
   if (!clip.export_url) return new Response("Not exported yet", { status: 404 });
 
   const filename = buildFilename(clip.clip_title ?? clip.title ?? `clip-${clipId}`, clipId);
+  return streamClip(clip.export_url, filename);
+}
 
-  // Try to re-sign via R2 key (avoids stale presigned URL)
-  const r2Key = extractR2Key(clip.export_url);
-  if (r2Key) {
-    try {
-      const freshUrl = await getSignedUrl(
-        r2Client,
-        new GetObjectCommand({
-          Bucket: R2_BUCKET,
-          Key: r2Key,
-          ResponseContentDisposition: `attachment; filename="${filename}.mp4"`,
-        }),
-        { expiresIn: 3600 }
-      );
-      return Response.redirect(freshUrl, 302);
-    } catch {
-      // Fall through to direct fetch if re-sign fails
-    }
-  }
+async function streamClip(exportUrl: string, filename: string): Promise<Response> {
+  // Re-sign via R2 key → avoids stale presigned URL (7-day expiry)
+  const freshUrl = await getFreshUrl(exportUrl, filename);
+  if (freshUrl) return Response.redirect(freshUrl, 302);
 
-  // Fallback: proxy through server (handles edge cases)
-  const r2Res = await fetch(clip.export_url);
-  if (!r2Res.ok) {
-    return new Response("Export file unavailable — please re-export this clip", { status: 410 });
-  }
+  // Fallback: proxy (handles edge cases where key extraction fails)
+  const r2Res = await fetch(exportUrl);
+  if (!r2Res.ok) return new Response("Export unavailable — please re-export", { status: 410 });
 
   return new Response(r2Res.body, {
     headers: {
