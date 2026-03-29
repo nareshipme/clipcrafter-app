@@ -41,8 +41,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "No active subscription found" }, { status: 400 });
   }
 
-  const isAlpha =
-    !!user.alpha_expires_at && new Date(user.alpha_expires_at) > new Date();
+  const isAlpha = !!user.alpha_expires_at && new Date(user.alpha_expires_at) > new Date();
   const newPlanId = getPlanId(plan as ValidPlan, isAlpha);
   if (!newPlanId) {
     return Response.json({ error: "Plan not configured" }, { status: 500 });
@@ -55,10 +54,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Failed to update subscription" }, { status: 500 });
   }
 
-  await supabaseAdmin
-    .from("users")
-    .update({ plan })
-    .eq("clerk_id", userId);
+  await supabaseAdmin.from("users").update({ plan }).eq("clerk_id", userId);
 
   return Response.json({ ok: true, plan });
 }

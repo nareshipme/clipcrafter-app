@@ -17,7 +17,11 @@ export default function AlphaExpiryBanner() {
     fetch("/api/billing/usage")
       .then((r) => r.json())
       .then((d: UsageData) => {
-        if (d.alphaExpiresInDays !== null && d.alphaExpiresInDays > 0 && d.alphaExpiresInDays <= 5) {
+        if (
+          d.alphaExpiresInDays !== null &&
+          d.alphaExpiresInDays > 0 &&
+          d.alphaExpiresInDays <= 5
+        ) {
           setDaysLeft(d.alphaExpiresInDays);
           setShow(true);
         }
