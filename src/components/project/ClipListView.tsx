@@ -31,9 +31,10 @@ function TopicFilterChips({
       </button>
       {topics.map((t) => {
         const total = clips?.filter((c) => c.topic === t).length ?? 0;
-        const selectedCount = selectedClipIds.size > 0
-          ? (clips ?? []).filter((c) => c.topic === t && selectedClipIds.has(c.id)).length
-          : null;
+        const selectedCount =
+          selectedClipIds.size > 0
+            ? (clips ?? []).filter((c) => c.topic === t && selectedClipIds.has(c.id)).length
+            : null;
         return (
           <button
             key={t}

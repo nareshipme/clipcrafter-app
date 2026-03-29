@@ -277,7 +277,14 @@ export function useProjectData(id: string): ProjectDataResult {
     setSelectedTopic,
     s,
   });
-  const videoHandlers = buildVideoHandlers({ s, lr, clips, setClips, setSelectedClipId, selectedTopic });
+  const videoHandlers = buildVideoHandlers({
+    s,
+    lr,
+    clips,
+    setClips,
+    setSelectedClipId,
+    selectedTopic,
+  });
   return buildResult(
     s,
     {

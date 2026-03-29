@@ -90,7 +90,8 @@ export function makeHandlePlayAll(args: PlayAllArgs) {
   } = args;
   return function handlePlayAll() {
     if (!clips || clips.length === 0 || !videoRef.current) return;
-    let filtered = selectedClipIds.size > 0 ? clips.filter((c) => selectedClipIds.has(c.id)) : clips;
+    let filtered =
+      selectedClipIds.size > 0 ? clips.filter((c) => selectedClipIds.has(c.id)) : clips;
     if (selectedTopic) filtered = filtered.filter((c) => c.topic === selectedTopic);
     if (filtered.length === 0) return;
     const sorted = [...filtered].sort((a, b) => a.start_sec - b.start_sec);
