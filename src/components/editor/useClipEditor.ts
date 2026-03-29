@@ -17,6 +17,7 @@ export interface ClipEditorState {
   startSec: number;
   endSec: number;
   title: string;
+  captions: ClipCaption[];
   captionPosition: "top" | "center" | "bottom";
   captionSize: "sm" | "md" | "lg";
   format: "9:16" | "16:9";
@@ -27,6 +28,7 @@ export interface ClipEditorState {
   setStartSec: (v: number) => void;
   setEndSec: (v: number) => void;
   setTitle: (v: string) => void;
+  setCaptions: (v: ClipCaption[]) => void;
   setCaptionPosition: (v: "top" | "center" | "bottom") => void;
   setCaptionSize: (v: "sm" | "md" | "lg") => void;
   setFormat: (v: "9:16" | "16:9") => void;
@@ -110,10 +112,15 @@ function useExportManager(
     setExporting(true);
     setClipStatus("exporting");
     try {
+      const exportPayload = getExportPayload();
       const res = await fetch(`/api/projects/${projectId}/clips/export-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clipIds: [clipId], withCaptions: true }),
+        body: JSON.stringify({
+          clipIds: [clipId],
+          withCaptions: true,
+          captions: exportPayload.captions,
+        }),
       });
       if (!res.ok) {
         const err = (await res.json()) as { error?: string };
@@ -165,6 +172,8 @@ function useClipLoader(
     setCurrentTime: (v: number) => void;
     setFormat: (v: "9:16" | "16:9") => void;
     setClipStatus: (v: Clip["status"]) => void;
+    setCaptions: (v: ClipCaption[]) => void;
+    setVideoDuration: (v: number) => void;
     setLoading: (v: boolean) => void;
   }
 ) {
@@ -176,6 +185,8 @@ function useClipLoader(
     setCurrentTime,
     setFormat,
     setClipStatus,
+    setCaptions,
+    setVideoDuration,
     setLoading,
   } = setters;
   useEffect(() => {
@@ -191,6 +202,9 @@ function useClipLoader(
         setTitle(d.clip.clip_title ?? d.clip.title ?? "");
         setCurrentTime(d.clip.start_sec);
         setClipStatus(d.clip.status);
+        setCaptions(d.captions);
+        // Use clip end_sec as the video duration fallback (Remotion Player manages its own playback)
+        setVideoDuration(d.clip.end_sec);
         if ((d.clip as Clip & { aspect_ratio?: string }).aspect_ratio === "16:9") setFormat("16:9");
       })
       .catch(() => toast.error("Failed to load clip"))
@@ -205,6 +219,8 @@ function useClipLoader(
     setCurrentTime,
     setFormat,
     setClipStatus,
+    setCaptions,
+    setVideoDuration,
     setLoading,
   ]);
 }
@@ -238,6 +254,7 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
   const [startSec, setStartSec] = useState(0);
   const [endSec, setEndSec] = useState(0);
   const [title, setTitle] = useState("");
+  const [captions, setCaptions] = useState<ClipCaption[]>([]);
   const style = useEditorStyleState();
   const { timerRef, schedulePatch } = usePatchScheduler(projectId, clipId);
   const { startSecRef, endSecRef, titleRef, formatRef } = useStableRefs(
@@ -246,12 +263,17 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
     title,
     style.format
   );
+  const captionsRef = useRef<ClipCaption[]>([]);
+  useEffect(() => {
+    captionsRef.current = captions;
+  }, [captions]);
   const getExportPayload = useCallback(
     () => ({
       clip_title: titleRef.current,
       start_sec: startSecRef.current,
       end_sec: endSecRef.current,
       aspect_ratio: formatRef.current,
+      captions: captionsRef.current,
     }),
     [titleRef, startSecRef, endSecRef, formatRef]
   );
@@ -268,6 +290,8 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
     setCurrentTime: style.setCurrentTime,
     setFormat: style.setFormat,
     setClipStatus,
+    setCaptions,
+    setVideoDuration: style.setVideoDuration,
     setLoading,
   });
   useEffect(
@@ -293,6 +317,7 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
     startSec,
     endSec,
     title,
+    captions,
     captionPosition: style.captionPosition,
     captionSize: style.captionSize,
     format: style.format,
@@ -303,6 +328,7 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
     setStartSec,
     setEndSec,
     setTitle,
+    setCaptions,
     setCaptionPosition: style.setCaptionPosition,
     setCaptionSize: style.setCaptionSize,
     setFormat: style.setFormat,

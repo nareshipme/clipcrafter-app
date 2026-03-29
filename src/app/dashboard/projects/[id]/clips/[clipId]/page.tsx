@@ -1,12 +1,12 @@
 "use client";
 
-import { use } from "react";
+import { use, useCallback } from "react";
 import Link from "next/link";
 import { TwickTimeline } from "@/components/project/TwickTimeline";
-import { ClipVideoPlayer } from "@/components/editor/ClipVideoPlayer";
+import { ClipRemotionPlayer } from "@/components/editor/ClipRemotionPlayer";
 import { ClipEditPanel } from "@/components/editor/ClipEditPanel";
 import { useClipEditor } from "@/components/editor/useClipEditor";
-import type { Clip } from "@/components/project/types";
+import type { Clip, CaptionStyle } from "@/components/project/types";
 
 // ── Back bar ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,15 @@ export default function ClipEditorPage({
   const { id: projectId, clipId } = use(params);
   const editor = useClipEditor(projectId, clipId);
 
+  const handleCaptionEdited = useCallback(
+    (index: number, start: number, end: number) => {
+      editor.setCaptions(
+        editor.captions.map((c, i) => (i === index ? { ...c, start, end } : c))
+      );
+    },
+    [editor]
+  );
+
   if (editor.loading) {
     return (
       <div className="p-6 flex flex-col gap-4">
@@ -65,23 +74,24 @@ export default function ClipEditorPage({
     clip_title: editor.title || editor.data.clip.clip_title,
   };
 
+  const captionStyle = (editor.data.clip.caption_style as CaptionStyle) || "hormozi";
+
   return (
     <div className="flex flex-col min-h-full bg-gray-950">
       <BackBar projectId={projectId} title={editor.title} />
 
       <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* Player — 60% on desktop */}
-        <div className="lg:w-[60%] aspect-video lg:aspect-auto bg-black relative min-h-[200px] lg:min-h-[400px]">
-          <ClipVideoPlayer
+        <div className="lg:w-[60%] aspect-video lg:aspect-auto bg-black relative min-h-[200px] lg:min-h-[400px] flex items-center justify-center p-4">
+          <ClipRemotionPlayer
             videoSrc={editor.data.videoUrl}
             startSec={editor.startSec}
             endSec={editor.endSec}
-            captions={editor.data.captions}
+            captions={editor.captions}
             captionPosition={editor.captionPosition}
             captionSize={editor.captionSize}
-            currentTime={editor.currentTime}
-            onTimeUpdate={editor.setCurrentTime}
-            onDurationLoaded={editor.setVideoDuration}
+            captionStyle={captionStyle}
+            aspectRatio={editor.format}
           />
         </div>
 
@@ -98,6 +108,9 @@ export default function ClipEditorPage({
           selectedTopic={null}
           onSeek={editor.setCurrentTime}
           onClipTrimmed={editor.handleClipTrimmed}
+          captions={editor.captions}
+          clipStartSec={editor.startSec}
+          onCaptionEdited={handleCaptionEdited}
         />
       )}
     </div>

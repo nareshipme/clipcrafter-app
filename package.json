@@ -28,6 +28,7 @@
     "@google/generative-ai": "^0.24.1",
     "@remotion/bundler": "^4.0.438",
     "@remotion/captions": "^4.0.438",
+    "@remotion/player": "^4.0.441",
     "@remotion/renderer": "^4.0.438",
     "@supabase/supabase-js": "^2.99.3",
     "@twick/live-player": "^0.15.27",

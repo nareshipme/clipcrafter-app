@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "@remotion/renderer",
     "@remotion/bundler",
     "@remotion/captions",
+    "@remotion/player",
     "remotion",
   ],
 };

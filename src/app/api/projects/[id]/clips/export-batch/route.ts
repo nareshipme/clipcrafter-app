@@ -8,9 +8,16 @@ import { inngest } from "@/lib/inngest";
 
 const EXPORTABLE_STATUSES = ["pending", "approved"] as const;
 
+interface CaptionSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
 function validateExportBatchBody(body: {
   clipIds?: unknown;
   withCaptions?: unknown;
+  captions?: unknown;
 }): string | null {
   if (!Array.isArray(body.clipIds) || body.clipIds.length === 0) {
     return "clipIds must be a non-empty array";
@@ -48,21 +55,29 @@ function checkNothingToQueue(
   return null;
 }
 
-async function dispatchExportEvents(
-  validIds: string[],
-  projectId: string,
-  supabaseUserId: string,
-  withCaptions: boolean
-) {
+interface DispatchOpts {
+  validIds: string[];
+  projectId: string;
+  supabaseUserId: string;
+  withCaptions: boolean;
+  captions?: CaptionSegment[];
+}
+
+async function dispatchExportEvents(opts: DispatchOpts) {
+  const { validIds, projectId, supabaseUserId, withCaptions, captions } = opts;
   await supabaseAdmin.from("clips").update({ status: "exporting" }).in("id", validIds);
   await Promise.all(
     validIds.map((clipId) =>
       inngest.send({
         name: "clipcrafter/clip.export",
-        data: { clipId, projectId, userId: supabaseUserId, withCaptions },
+        data: { clipId, projectId, userId: supabaseUserId, withCaptions, customCaptions: captions },
       })
     )
   );
+}
+
+function resolveCustomCaptions(raw: unknown): CaptionSegment[] | undefined {
+  return Array.isArray(raw) ? (raw as CaptionSegment[]) : undefined;
 }
 
 async function resolveAuthedUser(): Promise<{ supabaseUserId: string } | { error: Response }> {
@@ -80,8 +95,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { supabaseUserId } = authed;
 
   const { id: projectId } = await params;
-  const body = (await request.json()) as { clipIds?: unknown; withCaptions?: unknown };
-  const { clipIds, withCaptions } = body;
+  const body = (await request.json()) as {
+    clipIds?: unknown;
+    withCaptions?: unknown;
+    captions?: unknown;
+  };
+  const { clipIds, withCaptions, captions } = body;
 
   const validationError = validateExportBatchBody(body);
   if (validationError) return Response.json({ error: validationError }, { status: 400 });
@@ -107,7 +126,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const nothingToQueue = checkNothingToQueue(validIds, clips ?? []);
   if (nothingToQueue) return nothingToQueue;
 
-  await dispatchExportEvents(validIds, projectId, supabaseUserId, withCaptions === true);
+  await dispatchExportEvents({
+    validIds,
+    projectId,
+    supabaseUserId,
+    withCaptions: withCaptions === true,
+    captions: resolveCustomCaptions(captions),
+  });
 
   return Response.json({ queued: validIds.length, skipped: skippedCount }, { status: 202 });
 }

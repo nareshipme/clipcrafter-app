@@ -11,11 +11,19 @@ import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { logAiUsage } from "@/lib/aiUsageLogger";
 const execFileAsync = promisify(execFile);
 
+interface CustomCaption {
+  start: number; // clip-relative seconds
+  end: number;
+  text: string;
+}
+
 export interface ClipExportEventData {
   clipId: string;
   projectId: string;
   userId: string;
   withCaptions?: boolean;
+  /** Edited captions from the browser editor (clip-relative seconds). When provided, overrides transcript-derived captions. */
+  customCaptions?: CustomCaption[];
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -75,6 +83,20 @@ function toCaptions(segments: Segment[], clipStart: number, clipEnd: number) {
     }));
 }
 
+/** Convert client-edited captions (clip-relative seconds) → Remotion Caption format */
+function customCaptionsToRemotionFormat(
+  captions: CustomCaption[],
+  clipStart: number
+) {
+  return captions.map((c) => ({
+    text: c.text,
+    startMs: (c.start + clipStart) * 1000,
+    endMs: (c.end + clipStart) * 1000,
+    timestampMs: (c.start + clipStart) * 1000,
+    confidence: 1,
+  }));
+}
+
 /**
  * Render clip by spawning the standalone remotion-render.mjs script.
  * This keeps @remotion/renderer completely outside the Next.js module graph.
@@ -126,7 +148,7 @@ export async function clipExportHandler(
   event: { data: ClipExportEventData },
   step: { run: (id: string, fn: () => Promise<unknown>) => Promise<unknown> }
 ): Promise<Record<string, unknown>> {
-  const { clipId, projectId, withCaptions = false } = event.data;
+  const { clipId, projectId, withCaptions = false, customCaptions } = event.data;
   const outputPath = path.join(os.tmpdir(), `clipcrafter-export-${clipId}.mp4`);
 
   try {
@@ -207,11 +229,16 @@ export async function clipExportHandler(
     await step.run("trim-and-render", async () => {
       const renderStart = Date.now();
       try {
+        const resolvedCaptions = withCaptions
+          ? (customCaptions
+              ? customCaptionsToRemotionFormat(customCaptions, clip.start_sec)
+              : toCaptions(segments, clip.start_sec, clip.end_sec))
+          : [];
         await renderWithRemotion({
           videoSrc: videoUrl,
           startSec: clip.start_sec,
           endSec: clip.end_sec,
-          captions: withCaptions ? toCaptions(segments, clip.start_sec, clip.end_sec) : [],
+          captions: resolvedCaptions,
           captionStyle: clip.caption_style,
           withCaptions,
           captionPosition: "bottom",
