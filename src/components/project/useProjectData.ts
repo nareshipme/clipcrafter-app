@@ -59,6 +59,7 @@ interface ProjectHandlerOpts {
   id: string;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   fetchStatus: () => Promise<void>;
+  clips: Clip[] | null;
   setClips: React.Dispatch<React.SetStateAction<Clip[] | null>>;
   setClipsStatus: React.Dispatch<React.SetStateAction<string>>;
   setSelectedTopic: (t: string | null) => void;
@@ -69,7 +70,7 @@ interface ProjectHandlerOpts {
 }
 
 function buildProjectHandlers(opts: ProjectHandlerOpts) {
-  const { id, setLoading, fetchStatus, setClips, setClipsStatus, setSelectedTopic, s } = opts;
+  const { id, setLoading, fetchStatus, clips, setClips, setClipsStatus, setSelectedTopic, s } = opts;
   return {
     handleRetry: makeHandleRetry(id, { setLoading, fetchStatus }),
     handleDelete: makeHandleDelete(id),
@@ -86,7 +87,7 @@ function buildProjectHandlers(opts: ProjectHandlerOpts) {
     handleExportClip: makeHandleExportClip(setClips),
     handleExportBatch: makeHandleExportBatch(
       id,
-      () => ({ selectedClipIds: s.selectedClipIds, withCaptions: s.withCaptions }),
+      () => ({ selectedClipIds: s.selectedClipIds, withCaptions: s.withCaptions, clips }),
       setClips
     ),
     handleStitchExport: makeHandleStitchExport(id, () => ({
@@ -263,15 +264,8 @@ export function useProjectData(id: string): ProjectDataResult {
   useAutoSelectClips(clips, s.setSelectedClipIds);
   useExportPolling(clips, fetchClips);
   useArtifactRefresh(data?.status, loadArtifacts);
-  const projectHandlers = buildProjectHandlers({
-    id,
-    setLoading,
-    fetchStatus,
-    setClips,
-    setClipsStatus,
-    setSelectedTopic,
-    s,
-  });
+  // prettier-ignore
+  const projectHandlers = buildProjectHandlers({ id, setLoading, fetchStatus, clips, setClips, setClipsStatus, setSelectedTopic, s });
   const videoHandlers = buildVideoHandlers({
     s,
     lr: { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef },
