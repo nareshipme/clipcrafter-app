@@ -23,10 +23,17 @@
  *   const result = await callLLM("Your prompt here");
  */
 
+import { logAiUsage } from "./aiUsageLogger";
+
 export interface LLMOptions {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
+}
+
+export interface LLMContext {
+  projectId?: string;
+  userId?: string;
 }
 
 // Fallback chains per provider — tried in order until one succeeds
@@ -77,6 +84,24 @@ interface ModelCallArgs {
   provider: string;
 }
 
+interface LLMCallResult {
+  content: string;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+function buildAuthHeaders(provider: string, apiKey: string): Record<string, string> {
+  if (provider === "sarvam") return { "Content-Type": "application/json", "api-subscription-key": apiKey };
+  return { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` };
+}
+
+function buildMessages(prompt: string, systemPrompt?: string) {
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({ role: "user", content: prompt });
+  return messages;
+}
+
 async function callLLMWithModel({
   model,
   prompt,
@@ -84,18 +109,9 @@ async function callLLMWithModel({
   baseUrl,
   apiKey,
   provider,
-}: ModelCallArgs): Promise<string> {
-  const messages: Array<{ role: string; content: string }> = [];
-  if (opts.systemPrompt) messages.push({ role: "system", content: opts.systemPrompt });
-  messages.push({ role: "user", content: prompt });
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (provider === "sarvam") {
-    headers["api-subscription-key"] = apiKey;
-  } else {
-    headers["Authorization"] = `Bearer ${apiKey}`;
-  }
-
+}: ModelCallArgs): Promise<LLMCallResult> {
+  const messages = buildMessages(prompt, opts.systemPrompt);
+  const headers = buildAuthHeaders(provider, apiKey);
   const body: Record<string, unknown> = { model, messages, temperature: opts.temperature ?? 0.3 };
   if (opts.maxTokens) body.max_tokens = opts.maxTokens;
 
@@ -111,12 +127,15 @@ async function callLLMWithModel({
     throw new Error(`LLM call failed (${provider}/${model} ${res.status}): ${err.slice(0, 300)}`);
   }
 
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error(`LLM returned empty content (${provider}/${model})`);
 
   console.warn(`[llm] ${provider}/${model} → ${content.length} chars`);
-  return content;
+  return { content, inputTokens: data.usage?.prompt_tokens, outputTokens: data.usage?.completion_tokens };
 }
 
 function isRetryableError(msg: string): boolean {
@@ -135,7 +154,7 @@ async function tryModelsInOrder(
   prompt: string,
   opts: LLMOptions,
   config: { baseUrl: string; apiKey: string; provider: string }
-): Promise<string> {
+): Promise<LLMCallResult> {
   let lastErr: Error | null = null;
   for (const model of models) {
     try {
@@ -150,10 +169,43 @@ async function tryModelsInOrder(
   throw lastErr ?? new Error(`All ${config.provider} models failed`);
 }
 
-export async function callLLM(prompt: string, opts: LLMOptions = {}): Promise<string> {
+function llmProvider(provider: string): "gemini" | undefined {
+  return provider === "gemini" ? "gemini" : undefined;
+}
+
+export async function callLLM(
+  prompt: string,
+  opts: LLMOptions = {},
+  context?: LLMContext
+): Promise<string> {
   const { model, baseUrl, apiKey, provider } = getConfig();
   const models = provider === "gemini" ? [...new Set([model, ...GEMINI_MODELS])] : [model];
-  return tryModelsInOrder(models, prompt, opts, { baseUrl, apiKey, provider });
+  const start = Date.now();
+  try {
+    const result = await tryModelsInOrder(models, prompt, opts, { baseUrl, apiKey, provider });
+    void logAiUsage({
+      projectId: context?.projectId,
+      userId: context?.userId,
+      stage: "highlights",
+      provider: llmProvider(provider),
+      status: "success",
+      durationMs: Date.now() - start,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+    });
+    return result.content;
+  } catch (err) {
+    void logAiUsage({
+      projectId: context?.projectId,
+      userId: context?.userId,
+      stage: "highlights",
+      provider: llmProvider(provider),
+      status: "error",
+      durationMs: Date.now() - start,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }
 
 /** Convenience: parse JSON from LLM output, stripping markdown fences */

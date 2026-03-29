@@ -12,6 +12,7 @@ import { r2Client, R2_BUCKET } from "@/lib/r2";
 import { isProcessingAllowed, incrementUsageSeconds } from "@/lib/billing";
 import { transcribeAudio } from "@/lib/transcribe";
 import { generateHighlights, formatSegmentsForHighlights } from "@/lib/highlights";
+import { logAiUsage } from "@/lib/aiUsageLogger";
 
 const execFileAsync = promisify(execFile);
 
@@ -316,13 +317,39 @@ export async function processVideoHandler(
     const transcript = await step.run("transcribe", async () => {
       await updateProjectStatus(projectId, { status: "transcribing" });
       logger.log({ step: "transcribe", provider: "Sarvam Saaras v3", status: "ok" });
-      const result = await transcribeAudio(audioPath);
-      logger.log({
-        step: "transcribe",
-        provider: result.provider ?? "Sarvam Saaras v3",
-        detail: `${result.segments.length} segments`,
-        status: "ok",
-      });
+      const transcribeStart = Date.now();
+      let result;
+      try {
+        result = await transcribeAudio(audioPath);
+        logger.log({
+          step: "transcribe",
+          provider: result.provider ?? "Sarvam Saaras v3",
+          detail: `${result.segments.length} segments`,
+          status: "ok",
+        });
+        const lastSeg = result.segments[result.segments.length - 1];
+        const audioSeconds = lastSeg ? Math.round(lastSeg.end) : undefined;
+        await logAiUsage({
+          projectId,
+          userId: event.data.userId,
+          stage: "transcribe",
+          provider: "sarvam",
+          status: "success",
+          durationMs: Date.now() - transcribeStart,
+          audioSeconds,
+        });
+      } catch (err) {
+        await logAiUsage({
+          projectId,
+          userId: event.data.userId,
+          stage: "transcribe",
+          provider: "sarvam",
+          status: "error",
+          durationMs: Date.now() - transcribeStart,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
 
       const { data } = await supabaseAdmin
         .from("transcripts")

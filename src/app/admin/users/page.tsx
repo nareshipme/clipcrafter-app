@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type AdminUser = {
   id: string;
@@ -62,7 +63,11 @@ function UserRow({ user, disabled, onSetPlan, onResetUsage, onGrantAlpha }: RowP
     "px-2 py-1 text-xs rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 transition-colors disabled:opacity-50";
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
-      <td className="px-4 py-3 text-white font-mono text-xs">{user.email}</td>
+      <td className="px-4 py-3 font-mono text-xs">
+        <Link href={`/admin/users/${user.id}`} className="text-violet-400 hover:text-violet-300 hover:underline">
+          {user.email}
+        </Link>
+      </td>
       <td className="px-4 py-3 text-gray-300">{user.full_name ?? "—"}</td>
       <td className="px-4 py-3">
         <span

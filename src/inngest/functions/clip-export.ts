@@ -8,6 +8,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { inngest } from "@/lib/inngest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { r2Client, R2_BUCKET } from "@/lib/r2";
+import { logAiUsage } from "@/lib/aiUsageLogger";
 const execFileAsync = promisify(execFile);
 
 export interface ClipExportEventData {
@@ -201,15 +202,37 @@ export async function clipExportHandler(
 
     // ── Step 3: render with Remotion (videoUrl is always HTTPS) ──
     await step.run("trim-and-render", async () => {
-      await renderWithRemotion({
-        videoSrc: videoUrl,
-        startSec: clip.start_sec,
-        endSec: clip.end_sec,
-        captions: withCaptions ? toCaptions(segments, clip.start_sec, clip.end_sec) : [],
-        captionStyle: clip.caption_style,
-        withCaptions,
-        outputPath,
-      });
+      const renderStart = Date.now();
+      try {
+        await renderWithRemotion({
+          videoSrc: videoUrl,
+          startSec: clip.start_sec,
+          endSec: clip.end_sec,
+          captions: withCaptions ? toCaptions(segments, clip.start_sec, clip.end_sec) : [],
+          captionStyle: clip.caption_style,
+          withCaptions,
+          outputPath,
+        });
+        await logAiUsage({
+          projectId,
+          userId: event.data.userId,
+          stage: "export",
+          provider: "remotion",
+          status: "success",
+          durationMs: Date.now() - renderStart,
+        });
+      } catch (err) {
+        await logAiUsage({
+          projectId,
+          userId: event.data.userId,
+          stage: "export",
+          provider: "remotion",
+          status: "error",
+          durationMs: Date.now() - renderStart,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
     });
 
     // ── Step 4: upload rendered clip to R2 ──
