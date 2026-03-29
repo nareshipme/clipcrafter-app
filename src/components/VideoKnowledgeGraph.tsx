@@ -3,6 +3,7 @@
 import { useMemo, useEffect } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   useNodesState,
@@ -388,48 +389,53 @@ export default function VideoKnowledgeGraph({
     allSegmentIds.length > 0 && allSegmentIds.every((id) => selectedSegmentIds.has(id));
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        background: "#030712",
-      }}
-    >
-      <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
-        <button
-          type="button"
-          onClick={() => onSelectAll(allSelected ? [] : allSegmentIds)}
-          className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors"
-        >
-          {allSelected ? "Deselect All" : "Select All"}
-        </button>
-        <button
-          type="button"
-          onClick={onKeepAll}
-          className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-green-400 transition-colors"
-        >
-          Keep All
-        </button>
+    // ReactFlowProvider is required here because this component is loaded via Next.js
+    // dynamic() import. Without an explicit provider, the ReactFlow context (including
+    // the SVG edge renderer) can be missing, causing edges to not render (#55).
+    <ReactFlowProvider>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          background: "#030712",
+        }}
+      >
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
+          <button
+            type="button"
+            onClick={() => onSelectAll(allSelected ? [] : allSegmentIds)}
+            className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors"
+          >
+            {allSelected ? "Deselect All" : "Select All"}
+          </button>
+          <button
+            type="button"
+            onClick={onKeepAll}
+            className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-green-400 transition-colors"
+          >
+            Keep All
+          </button>
+        </div>
+        <div style={{ width: "100%", height: "100%", position: "relative", flex: 1, minHeight: 0 }}>
+          <ReactFlow
+            nodes={nodesWithSelection}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.2}
+            maxZoom={2}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} color="#374151" gap={20} size={1} />
+            <Controls className="!bg-gray-900 !border-gray-700 !text-gray-300" />
+          </ReactFlow>
+        </div>
       </div>
-      <div style={{ width: "100%", height: "100%", position: "relative", flex: 1, minHeight: 0 }}>
-        <ReactFlow
-          nodes={nodesWithSelection}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.2}
-          maxZoom={2}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background variant={BackgroundVariant.Dots} color="#374151" gap={20} size={1} />
-          <Controls className="!bg-gray-900 !border-gray-700 !text-gray-300" />
-        </ReactFlow>
-      </div>
-    </div>
+    </ReactFlowProvider>
   );
 }

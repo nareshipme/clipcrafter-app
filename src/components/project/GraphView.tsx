@@ -197,7 +197,9 @@ export function GraphView({
 }: GraphViewProps) {
   return (
     <>
-      <div className="rounded-xl overflow-hidden border border-gray-800" style={{ height: 420 }}>
+      {/* overflow-clip instead of overflow-hidden: clips visually without creating a new stacking
+          context that would cause ReactFlow's SVG edge layer to be invisible (#55) */}
+      <div className="rounded-xl border border-gray-800" style={{ height: 420, overflow: "clip" }}>
         <VideoKnowledgeGraph
           graph={computedGraph}
           onSegmentClick={(segment) => {
