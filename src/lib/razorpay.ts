@@ -56,6 +56,23 @@ export async function createSubscription(
   return res.json();
 }
 
+export async function updateSubscription(
+  subscriptionId: string,
+  newPlanId: string
+): Promise<{ id: string }> {
+  const res = await razorpayFetch(`/subscriptions/${subscriptionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      plan_id: newPlanId,
+      quantity: 1,
+      remaining_count: 12,
+      schedule_change_at: "cycle_end",
+    }),
+  });
+  if (!res.ok) throw new Error(`Razorpay updateSubscription failed: ${await res.text()}`);
+  return res.json();
+}
+
 export function verifyWebhookSignature(body: string, signature: string): boolean {
   // Requires RAZORPAY_WEBHOOK_SECRET — set this in env vars from
   // Razorpay dashboard → Settings → Webhooks → Secret.
