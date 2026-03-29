@@ -263,7 +263,6 @@ export function useProjectData(id: string): ProjectDataResult {
   useAutoSelectClips(clips, s.setSelectedClipIds);
   useExportPolling(clips, fetchClips);
   useArtifactRefresh(data?.status, loadArtifacts);
-  const lr: LocalRefs = { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef };
   const projectHandlers = buildProjectHandlers({
     id,
     setLoading,
@@ -275,7 +274,7 @@ export function useProjectData(id: string): ProjectDataResult {
   });
   const videoHandlers = buildVideoHandlers({
     s,
-    lr,
+    lr: { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef },
     clips,
     setClips,
     setSelectedClipId,
