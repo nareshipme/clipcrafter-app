@@ -104,6 +104,12 @@ type ClipPatchBody = {
   topic?: string;
   caption_style?: string;
   aspect_ratio?: string;
+  caption_position?: string;
+  caption_size?: string;
+  crop_mode?: string;
+  crop_x?: number;
+  crop_y?: number;
+  crop_zoom?: number;
 };
 
 function validateTimings(body: ClipPatchBody): { error: Response } | null {
@@ -119,15 +125,25 @@ function validateTimings(body: ClipPatchBody): { error: Response } | null {
   return null;
 }
 
+const ALLOWED_CLIP_FIELDS: (keyof ClipPatchBody)[] = [
+  "clip_title",
+  "start_sec",
+  "end_sec",
+  "topic",
+  "caption_style",
+  "aspect_ratio",
+  "caption_position",
+  "caption_size",
+  "crop_mode",
+  "crop_x",
+  "crop_y",
+  "crop_zoom",
+];
+
 function buildClipUpdates(body: ClipPatchBody): Record<string, unknown> {
-  const updates: Record<string, unknown> = {};
-  if (body.clip_title !== undefined) updates.clip_title = body.clip_title;
-  if (body.start_sec !== undefined) updates.start_sec = body.start_sec;
-  if (body.end_sec !== undefined) updates.end_sec = body.end_sec;
-  if (body.topic !== undefined) updates.topic = body.topic;
-  if (body.caption_style !== undefined) updates.caption_style = body.caption_style;
-  if (body.aspect_ratio !== undefined) updates.aspect_ratio = body.aspect_ratio;
-  return updates;
+  return Object.fromEntries(
+    ALLOWED_CLIP_FIELDS.filter((k) => body[k] !== undefined).map((k) => [k, body[k]])
+  );
 }
 
 export async function PATCH(

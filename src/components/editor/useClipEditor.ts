@@ -130,6 +130,13 @@ function useExportManager(
           clipIds: [clipId],
           withCaptions: true,
           captions: exportPayload.captions,
+          captionStyle: exportPayload.caption_style,
+          captionPosition: exportPayload.caption_position,
+          captionSize: exportPayload.caption_size,
+          cropMode: exportPayload.crop_mode,
+          cropX: exportPayload.crop_x,
+          cropY: exportPayload.crop_y,
+          cropZoom: exportPayload.crop_zoom,
         }),
       });
       if (!res.ok) {
@@ -307,8 +314,16 @@ export function useClipEditor(projectId: string, clipId: string): ClipEditorStat
       end_sec: endSecRef.current,
       aspect_ratio: formatRef.current,
       captions: captionsRef.current,
+      // Editor style settings — saved to DB so re-exports use same config
+      caption_style: style.captionStyle,
+      caption_position: style.captionPosition,
+      caption_size: style.captionSize,
+      crop_mode: style.cropMode,
+      crop_x: style.cropX,
+      crop_y: style.cropY,
+      crop_zoom: style.cropZoom,
     }),
-    [titleRef, startSecRef, endSecRef, formatRef]
+    [titleRef, startSecRef, endSecRef, formatRef, style]
   );
   const { exporting, clipStatus, setClipStatus, pollRef, handleExport } = useExportManager(
     projectId,

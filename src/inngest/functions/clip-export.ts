@@ -24,6 +24,14 @@ export interface ClipExportEventData {
   withCaptions?: boolean;
   /** Edited captions from the browser editor (clip-relative seconds). When provided, overrides transcript-derived captions. */
   customCaptions?: CustomCaption[];
+  /** Editor style overrides — if omitted, falls back to DB clip columns */
+  captionStyle?: string;
+  captionPosition?: string;
+  captionSize?: string;
+  cropMode?: string;
+  cropX?: number;
+  cropY?: number;
+  cropZoom?: number;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -94,6 +102,83 @@ function customCaptionsToRemotionFormat(captions: CustomCaption[], _clipStart: n
   }));
 }
 
+async function resolveVideoUrl(
+  r2Key: string,
+  isYouTube: boolean,
+  projectId: string,
+  clipId: string
+): Promise<string> {
+  if (!isYouTube) return getR2PresignedUrl(r2Key, 3 * 3600);
+  const ytSourcePath = path.join(os.tmpdir(), `clipcrafter-yt-${clipId}.mp4`);
+  const ytTempR2Key = `temp-sources/${projectId}/${clipId}.mp4`;
+  try {
+    await downloadYouTubeVideo(r2Key, ytSourcePath);
+    const buf = await fs.readFile(ytSourcePath);
+    await r2Client.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: ytTempR2Key,
+        Body: buf,
+        ContentType: "video/mp4",
+      })
+    );
+    return getR2PresignedUrl(ytTempR2Key, 3 * 3600);
+  } finally {
+    await fs.unlink(ytSourcePath).catch(() => undefined);
+  }
+}
+
+async function runRenderStep(
+  opts: Parameters<typeof renderWithRemotion>[0],
+  projectId: string,
+  userId: string
+) {
+  const renderStart = Date.now();
+  try {
+    await renderWithRemotion(opts);
+    await logAiUsage({
+      projectId,
+      userId,
+      stage: "export",
+      provider: "remotion",
+      status: "success",
+      durationMs: Date.now() - renderStart,
+    });
+  } catch (err) {
+    await logAiUsage({
+      projectId,
+      userId,
+      stage: "export",
+      provider: "remotion",
+      status: "error",
+      durationMs: Date.now() - renderStart,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+interface BuildCaptionsArgs {
+  withCaptions: boolean;
+  customCaptions?: CustomCaption[];
+  segments: Segment[];
+  clipStart: number;
+  clipEnd: number;
+}
+
+function buildCaptions({
+  withCaptions,
+  customCaptions,
+  segments,
+  clipStart,
+  clipEnd,
+}: BuildCaptionsArgs) {
+  if (!withCaptions) return [];
+  return customCaptions
+    ? customCaptionsToRemotionFormat(customCaptions, clipStart)
+    : toCaptions(segments, clipStart, clipEnd);
+}
+
 /**
  * Render clip by spawning the standalone remotion-render.mjs script.
  * This keeps @remotion/renderer completely outside the Next.js module graph.
@@ -108,6 +193,10 @@ async function renderWithRemotion(opts: {
   captionPosition: string;
   captionSize: string;
   aspectRatio: string;
+  cropMode?: string;
+  cropX?: number;
+  cropY?: number;
+  cropZoom?: number;
   outputPath: string;
 }): Promise<void> {
   const propsPath = opts.outputPath + ".props.json";
@@ -141,11 +230,24 @@ type ClipRow = {
   title: string | null;
 };
 
+// eslint-disable-next-line complexity
 export async function clipExportHandler(
   event: { data: ClipExportEventData },
   step: { run: (id: string, fn: () => Promise<unknown>) => Promise<unknown> }
 ): Promise<Record<string, unknown>> {
-  const { clipId, projectId, withCaptions = false, customCaptions } = event.data;
+  const {
+    clipId,
+    projectId,
+    withCaptions = false,
+    customCaptions,
+    captionStyle: eventCaptionStyle,
+    captionPosition: eventCaptionPosition,
+    captionSize: eventCaptionSize,
+    cropMode: eventCropMode,
+    cropX: eventCropX,
+    cropY: eventCropY,
+    cropZoom: eventCropZoom,
+  } = event.data;
   const outputPath = path.join(os.tmpdir(), `clipcrafter-export-${clipId}.mp4`);
 
   try {
@@ -154,7 +256,7 @@ export async function clipExportHandler(
       const { data: clipData, error: clipError } = await supabaseAdmin
         .from("clips")
         .select(
-          "id, start_sec, end_sec, caption_style, aspect_ratio, project_id, clip_title, title"
+          "id, start_sec, end_sec, caption_style, aspect_ratio, project_id, clip_title, title, caption_position, caption_size, crop_mode, crop_x, crop_y, crop_zoom"
         )
         .eq("id", clipId)
         .single();
@@ -194,76 +296,44 @@ export async function clipExportHandler(
     const { clip, segments, r2Key, isYouTube } = stepOneResult;
 
     // ── Step 2: resolve an HTTPS URL Remotion's Chromium can fetch ──
-    // R2 video  → presigned URL (no download needed at all)
-    // YouTube   → download locally, re-upload to R2 temp, presign
-    const videoUrl = (await step.run("resolve-video-url", async () => {
-      if (!isYouTube) {
-        // Direct R2 presigned URL — Chromium fetches it over HTTPS
-        return getR2PresignedUrl(r2Key, 3 * 3600);
-      }
-
-      // YouTube: download → upload to R2 temp
-      const ytSourcePath = path.join(os.tmpdir(), `clipcrafter-yt-${clipId}.mp4`);
-      const ytTempR2Key = `temp-sources/${projectId}/${clipId}.mp4`;
-      try {
-        await downloadYouTubeVideo(r2Key, ytSourcePath);
-        const buf = await fs.readFile(ytSourcePath);
-        await r2Client.send(
-          new PutObjectCommand({
-            Bucket: R2_BUCKET,
-            Key: ytTempR2Key,
-            Body: buf,
-            ContentType: "video/mp4",
-          })
-        );
-        return getR2PresignedUrl(ytTempR2Key, 3 * 3600);
-      } finally {
-        await fs.unlink(ytSourcePath).catch(() => undefined);
-      }
-    })) as string;
+    const videoUrl = (await step.run("resolve-video-url", () =>
+      resolveVideoUrl(r2Key, isYouTube, projectId, clipId)
+    )) as string;
 
     // ── Step 3: render with Remotion (videoUrl is always HTTPS) ──
-    await step.run("trim-and-render", async () => {
-      const renderStart = Date.now();
-      try {
-        const resolvedCaptions = withCaptions
-          ? customCaptions
-            ? customCaptionsToRemotionFormat(customCaptions, clip.start_sec)
-            : toCaptions(segments, clip.start_sec, clip.end_sec)
-          : [];
-        await renderWithRemotion({
-          videoSrc: videoUrl,
-          startSec: clip.start_sec,
-          endSec: clip.end_sec,
-          captions: resolvedCaptions,
-          captionStyle: clip.caption_style,
-          withCaptions,
-          captionPosition: "bottom",
-          captionSize: "md",
-          aspectRatio: clip.aspect_ratio || "9:16",
-          outputPath,
-        });
-        await logAiUsage({
-          projectId,
-          userId: event.data.userId,
-          stage: "export",
-          provider: "remotion",
-          status: "success",
-          durationMs: Date.now() - renderStart,
-        });
-      } catch (err) {
-        await logAiUsage({
-          projectId,
-          userId: event.data.userId,
-          stage: "export",
-          provider: "remotion",
-          status: "error",
-          durationMs: Date.now() - renderStart,
-          errorMessage: err instanceof Error ? err.message : String(err),
-        });
-        throw err;
-      }
-    });
+    const clipExt = clip as ClipRow & {
+      caption_position?: string;
+      caption_size?: string;
+      crop_mode?: string;
+      crop_x?: number;
+      crop_y?: number;
+      crop_zoom?: number;
+    };
+    const renderOpts = {
+      videoSrc: videoUrl,
+      startSec: clip.start_sec,
+      endSec: clip.end_sec,
+      withCaptions,
+      outputPath,
+      captions: buildCaptions({
+        withCaptions,
+        customCaptions,
+        segments,
+        clipStart: clip.start_sec,
+        clipEnd: clip.end_sec,
+      }),
+      captionStyle: eventCaptionStyle ?? clip.caption_style ?? "hormozi",
+      captionPosition: eventCaptionPosition ?? clipExt.caption_position ?? "bottom",
+      captionSize: eventCaptionSize ?? clipExt.caption_size ?? "md",
+      aspectRatio: clip.aspect_ratio || "9:16",
+      cropMode: eventCropMode ?? clipExt.crop_mode ?? "cover",
+      cropX: eventCropX ?? clipExt.crop_x ?? 50,
+      cropY: eventCropY ?? clipExt.crop_y ?? 50,
+      cropZoom: eventCropZoom ?? clipExt.crop_zoom ?? 1,
+    };
+    await step.run("trim-and-render", () =>
+      runRenderStep(renderOpts, projectId, event.data.userId)
+    );
 
     // ── Step 4: upload rendered clip to R2 ──
     const exportUrl = (await step.run("upload-to-r2", async () => {
