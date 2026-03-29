@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+const isAdminRoute = createRouteMatcher(["/admin(.*)", "/api/admin(.*)"]);
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api(.*)"]);
 const isPublicApiRoute = createRouteMatcher([
   "/api/inngest(.*)", // Inngest dev server must reach this
@@ -20,8 +21,8 @@ export default clerkMiddleware(async (auth, req) => {
   // Skip auth for public API routes (Inngest, webhooks)
   if (isPublicApiRoute(req)) return;
 
-  // Protect dashboard and API routes
-  if (isProtectedRoute(req)) await auth.protect();
+  // Protect dashboard, admin, and API routes
+  if (isProtectedRoute(req) || isAdminRoute(req)) await auth.protect();
 });
 
 export const config = {
