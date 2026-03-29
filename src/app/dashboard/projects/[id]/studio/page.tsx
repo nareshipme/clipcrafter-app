@@ -61,6 +61,7 @@ function StudioSidebar() {
           <CompletedSidebar
             clips={p.clips}
             sortedClips={p.sortedClips}
+            projectId={p.projectId}
             computedGraph={p.computedGraph}
             viewMode={p.viewMode}
             clipsStatus={p.clipsStatus}

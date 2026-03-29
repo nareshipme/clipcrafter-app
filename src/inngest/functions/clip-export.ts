@@ -86,6 +86,9 @@ async function renderWithRemotion(opts: {
   captions: ReturnType<typeof toCaptions>;
   captionStyle: string;
   withCaptions: boolean;
+  captionPosition: string;
+  captionSize: string;
+  aspectRatio: string;
   outputPath: string;
 }): Promise<void> {
   const propsPath = opts.outputPath + ".props.json";
@@ -211,6 +214,9 @@ export async function clipExportHandler(
           captions: withCaptions ? toCaptions(segments, clip.start_sec, clip.end_sec) : [],
           captionStyle: clip.caption_style,
           withCaptions,
+          captionPosition: "bottom",
+          captionSize: "md",
+          aspectRatio: clip.aspect_ratio || "9:16",
           outputPath,
         });
         await logAiUsage({

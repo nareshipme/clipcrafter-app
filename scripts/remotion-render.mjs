@@ -8,12 +8,15 @@
  *
  * Props JSON shape:
  * {
- *   videoSrc: string,      // local file path
+ *   videoSrc: string,         // HTTPS presigned URL
  *   startSec: number,
  *   endSec: number,
  *   captions: Caption[],
  *   captionStyle: string,
- *   withCaptions: boolean
+ *   withCaptions: boolean,
+ *   captionPosition?: string, // "top" | "center" | "bottom" (default: "bottom")
+ *   captionSize?: string,     // "sm" | "md" | "lg" (default: "md")
+ *   aspectRatio?: string,     // "9:16" | "16:9" | "1:1" (default: "9:16")
  * }
  */
 

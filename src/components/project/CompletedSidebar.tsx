@@ -9,6 +9,7 @@ import type { VideoGraph } from "@/lib/video-graph";
 export interface CompletedSidebarProps {
   clips: Clip[] | null;
   sortedClips: Clip[] | null;
+  projectId?: string;
   computedGraph: VideoGraph | null;
   viewMode: "list" | "graph";
   clipsStatus: string;
@@ -186,6 +187,7 @@ type ClipViewProps = Pick<
   CompletedSidebarProps,
   | "clips"
   | "sortedClips"
+  | "projectId"
   | "computedGraph"
   | "viewMode"
   | "clipsStatus"
@@ -239,6 +241,7 @@ function ClipViewBody(props: ClipViewProps & { clips: NonNullable<ClipViewProps[
     return (
       <ClipListView
         sortedClips={sortedClips}
+        projectId={props.projectId}
         selectedClipId={props.selectedClipId}
         selectedClipIds={props.selectedClipIds}
         selectedTopic={props.selectedTopic}
