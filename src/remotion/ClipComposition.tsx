@@ -46,6 +46,20 @@ const HIGHLIGHT_COLORS: Record<string, string> = {
   minimal: "#e2c97e",
 };
 
+// ── Caption position / size presets ──────────────────────────────────────────
+
+const CAPTION_POSITION_STYLES: Record<string, React.CSSProperties> = {
+  bottom: { justifyContent: "flex-end", paddingBottom: "10%", paddingLeft: "5%", paddingRight: "5%" },
+  center: { justifyContent: "center", paddingLeft: "5%", paddingRight: "5%" },
+  top: { justifyContent: "flex-start", paddingTop: "10%", paddingLeft: "5%", paddingRight: "5%" },
+};
+
+const CAPTION_FONT_SIZES: Record<string, number> = {
+  sm: 24,
+  md: 32,
+  lg: 44,
+};
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface ClipCompositionProps {
@@ -61,6 +75,12 @@ export interface ClipCompositionProps {
   captionStyle: "hormozi" | "modern" | "neon" | "minimal";
   /** Whether to show captions */
   withCaptions: boolean;
+  /** Vertical position of captions */
+  captionPosition?: "top" | "center" | "bottom";
+  /** Caption font size preset */
+  captionSize?: "sm" | "md" | "lg";
+  /** Output aspect ratio */
+  aspectRatio?: "9:16" | "16:9" | "1:1";
 }
 
 // ── Caption page renderer ─────────────────────────────────────────────────────
@@ -71,10 +91,12 @@ function CaptionPage({
   page,
   style,
   highlightColor,
+  captionPosition = "bottom",
 }: {
   page: ReturnType<typeof createTikTokStyleCaptions>["pages"][number];
   style: React.CSSProperties;
   highlightColor: string;
+  captionPosition?: "top" | "center" | "bottom";
 }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -84,11 +106,8 @@ function CaptionPage({
   return (
     <AbsoluteFill
       style={{
-        justifyContent: "flex-end",
         alignItems: "center",
-        paddingBottom: 80,
-        paddingLeft: 24,
-        paddingRight: 24,
+        ...CAPTION_POSITION_STYLES[captionPosition],
       }}
     >
       <div
@@ -130,6 +149,8 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
   captions,
   captionStyle,
   withCaptions,
+  captionPosition = "bottom",
+  captionSize = "md",
 }) => {
   const { fps } = useVideoConfig();
   const clipDuration = endSec - startSec;
@@ -143,7 +164,11 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
     [captions]
   );
 
-  const style = CAPTION_STYLES[captionStyle] ?? CAPTION_STYLES.hormozi;
+  const baseStyle = CAPTION_STYLES[captionStyle] ?? CAPTION_STYLES.hormozi;
+  const style: React.CSSProperties = {
+    ...baseStyle,
+    fontSize: CAPTION_FONT_SIZES[captionSize] ?? CAPTION_FONT_SIZES.md,
+  };
   const highlightColor = HIGHLIGHT_COLORS[captionStyle] ?? "#FFD700";
 
   return (
@@ -169,7 +194,7 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
 
           return (
             <Sequence key={i} from={startFrame} durationInFrames={duration}>
-              <CaptionPage page={page} style={style} highlightColor={highlightColor} />
+              <CaptionPage page={page} style={style} highlightColor={highlightColor} captionPosition={captionPosition} />
             </Sequence>
           );
         })}

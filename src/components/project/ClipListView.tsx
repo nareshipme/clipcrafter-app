@@ -227,6 +227,7 @@ function triggerDownload(clipId: string, filename: string) {
 
 export interface ClipListViewProps {
   sortedClips: Clip[];
+  projectId?: string;
   selectedClipId: string | null;
   selectedClipIds: Set<string>;
   selectedTopic: string | null;
@@ -396,6 +397,7 @@ function ClipBody(p: ClipBodyProps) {
           p.displayClips.map((clip) => (
             <ClipCard
               key={clip.id}
+              projectId={p.projectId}
               clip={clip}
               isSelected={clip.id === p.selectedClipId}
               isChecked={p.selectedClipIds.has(clip.id)}
