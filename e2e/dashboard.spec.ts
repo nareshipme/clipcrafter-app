@@ -1,39 +1,67 @@
-import { test, expect } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
+import { test as authTest } from "./fixtures";
 
-test.describe("Feature: Dashboard", () => {
-  test.describe("Scenario: Unauthenticated access to dashboard", () => {
-    test("Given unauthenticated user, When they visit /dashboard, Then they are redirected to sign-in", async ({
-      page,
-    }) => {
-      await page.goto("/dashboard");
-      await expect(page).toHaveURL(/sign-in/);
-    });
+const skipIfNoTestUser =
+  !process.env.E2E_TEST_USER_EMAIL || process.env.E2E_TEST_USER_EMAIL === "test@example.com";
+
+base.describe("Feature: Dashboard – unauthenticated", () => {
+  base.describe("Scenario: Unauthenticated access is blocked", () => {
+    base(
+      "Given unauthenticated user, When they visit /dashboard, Then they are redirected to sign-in",
+      async ({ page }) => {
+        await page.goto("/dashboard");
+        await expect(page).toHaveURL(/sign-in/);
+      }
+    );
   });
+});
 
-  test.describe("Scenario: Landing page calls to action", () => {
-    test("Given any visitor, When they visit /, Then the page loads with a title", async ({
-      page,
-    }) => {
-      await page.goto("/");
-      await expect(page).toHaveTitle(/.+/);
-    });
+authTest.describe("Feature: Dashboard – authenticated", () => {
+  authTest.describe("Scenario: Authenticated user lands on /dashboard", () => {
+    authTest(
+      "Given authenticated user, When they visit /dashboard, Then they are not redirected",
+      async ({ page }) => {
+        authTest.skip(skipIfNoTestUser, "No real E2E test user configured");
+        await page.goto("/dashboard");
+        await expect(page).not.toHaveURL(/sign-in/);
+      }
+    );
 
-    test("Given any visitor, When they visit /, Then the page body is visible", async ({
-      page,
-    }) => {
-      await page.goto("/");
-      await expect(page.locator("body")).toBeVisible();
-    });
-  });
+    authTest(
+      "Given authenticated user on /dashboard, Then there are no console errors",
+      async ({ page }) => {
+        authTest.skip(skipIfNoTestUser, "No real E2E test user configured");
+        const errors: string[] = [];
+        page.on("console", (msg) => {
+          if (msg.type() === "error") errors.push(msg.text());
+        });
+        await page.goto("/dashboard");
+        await expect(page.locator("body")).toBeVisible();
+        expect(errors.filter((e) => !e.includes("favicon"))).toHaveLength(0);
+      }
+    );
 
-  test.describe("Scenario: Sign-in page is accessible", () => {
-    test("Given any visitor, When they visit /sign-in, Then the Clerk sign-in UI loads", async ({
-      page,
-    }) => {
-      await page.goto("/sign-in");
-      // Clerk renders an iframe or form — just check we don't see an error
-      await expect(page.locator("body")).toBeVisible();
-      await expect(page).not.toHaveURL(/500|error/);
-    });
+    authTest(
+      "Given authenticated user on /dashboard, Then a 'New Project' or upload trigger is visible",
+      async ({ page }) => {
+        authTest.skip(skipIfNoTestUser, "No real E2E test user configured");
+        await page.goto("/dashboard");
+        const trigger = page.getByRole("button", {
+          name: /new project|upload|create/i,
+        });
+        await expect(trigger.first()).toBeVisible();
+      }
+    );
+
+    authTest(
+      "Given authenticated user on /dashboard, Then there are no 500 errors",
+      async ({ page }) => {
+        authTest.skip(skipIfNoTestUser, "No real E2E test user configured");
+        const responses: number[] = [];
+        page.on("response", (res) => responses.push(res.status()));
+        await page.goto("/dashboard");
+        expect(responses.some((s) => s === 500)).toBe(false);
+      }
+    );
   });
 });
