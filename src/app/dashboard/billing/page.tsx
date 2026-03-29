@@ -91,22 +91,40 @@ function PlanCardAction({
   const btnBase =
     "block w-full text-center rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-50 transition-colors";
   if (isCurrent)
-    return <div className="text-center py-2 text-sm text-violet-400 font-semibold">Current Plan</div>;
+    return (
+      <div className="text-center py-2 text-sm text-violet-400 font-semibold">Current Plan</div>
+    );
   if (isHigher && hasActiveSubscription)
     return (
-      <button type="button" onClick={() => onUpgrade(planKey)} disabled={upgrading} className={`${btnBase} bg-violet-600 hover:bg-violet-500`}>
+      <button
+        type="button"
+        onClick={() => onUpgrade(planKey)}
+        disabled={upgrading}
+        className={`${btnBase} bg-violet-600 hover:bg-violet-500`}
+      >
         {upgrading ? "Upgrading…" : "Upgrade"}
       </button>
     );
   if (isHigher)
     return (
-      <button type="button" onClick={() => onSubscribe(planKey)} disabled={subscribing} className={`${btnBase} bg-violet-600 hover:bg-violet-500`}>
+      <button
+        type="button"
+        onClick={() => onSubscribe(planKey)}
+        disabled={subscribing}
+        className={`${btnBase} bg-violet-600 hover:bg-violet-500`}
+      >
         {subscribing ? "Loading…" : "Upgrade"}
       </button>
     );
   if (isLower)
     return (
-      <button type="button" onClick={() => onUpgrade(planKey)} disabled={upgrading} title="Takes effect at end of billing cycle" className={`${btnBase} border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200`}>
+      <button
+        type="button"
+        onClick={() => onUpgrade(planKey)}
+        disabled={upgrading}
+        title="Takes effect at end of billing cycle"
+        className={`${btnBase} border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200`}
+      >
         {upgrading ? "Updating…" : "Downgrade"}
       </button>
     );
@@ -264,6 +282,34 @@ async function startRazorpayCheckout(
   rzp.open();
 }
 
+function useUpgrade(refetch: () => Promise<void>) {
+  const [upgrading, setUpgrading] = useState(false);
+
+  async function handleUpgrade(plan: PlanKey) {
+    setUpgrading(true);
+    try {
+      const res = await fetch("/api/billing/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to update plan");
+        return;
+      }
+      toast.success(`Plan updated to ${plan}. Changes take effect at end of billing cycle.`);
+      await refetch();
+    } catch {
+      toast.error("Network error — please try again");
+    } finally {
+      setUpgrading(false);
+    }
+  }
+
+  return { upgrading, handleUpgrade };
+}
+
 function useBilling() {
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -295,9 +341,9 @@ export default function BillingPage() {
   const { user } = useUser();
   const { billing, loading, refetch } = useBilling();
   const [subscribing, setSubscribing] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
+  const { upgrading, handleUpgrade } = useUpgrade(refetch);
 
-  async function handleSubscribe(plan: "starter" | "pro" | "unlimited") {
+  async function handleSubscribe(plan: PlanKey) {
     if (!user) return;
     setSubscribing(true);
     try {
@@ -308,30 +354,12 @@ export default function BillingPage() {
     }
   }
 
-  async function handleUpgrade(plan: "starter" | "pro" | "unlimited") {
-    setUpgrading(true);
-    try {
-      const res = await fetch("/api/billing/upgrade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to update plan");
-        return;
-      }
-      toast.success(`Plan updated to ${plan}. Changes take effect at end of billing cycle.`);
-      await refetch();
-    } catch {
-      toast.error("Network error — please try again");
-    } finally {
-      setUpgrading(false);
-    }
-  }
-
   if (loading)
-    return <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center"><div className="animate-pulse text-gray-400">Loading billing info…</div></div>;
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="animate-pulse text-gray-400">Loading billing info…</div>
+      </div>
+    );
 
   const currentPlanRank = PLAN_ORDER[billing?.plan ?? "free"] ?? 0;
 
