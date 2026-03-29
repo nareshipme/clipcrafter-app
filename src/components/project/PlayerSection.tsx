@@ -42,6 +42,8 @@ export interface PlayerSectionProps {
   onToggleCaptions: () => void;
   onSetSelectedClipId: (id: string) => void;
   onSeekToClip: (clip: Clip) => void;
+  selectedTopic: string | null;
+  selectedClipIds: Set<string>;
 }
 
 function clipBarColor(clip: Clip, isSelected: boolean): string {
@@ -93,6 +95,8 @@ function TimelineScrubber({
   onHandleMouseDown,
   onSetSelectedClipId,
   onSeekToClip,
+  selectedTopic,
+  selectedClipIds,
 }: {
   timelineRef: React.RefObject<HTMLDivElement | null>;
   sortedClips: Clip[] | null;
@@ -103,6 +107,8 @@ function TimelineScrubber({
   onHandleMouseDown: (e: React.MouseEvent, clipId: string, side: "start" | "end") => void;
   onSetSelectedClipId: (id: string) => void;
   onSeekToClip: (clip: Clip) => void;
+  selectedTopic: string | null;
+  selectedClipIds: Set<string>;
 }) {
   return (
     <div
@@ -116,10 +122,15 @@ function TimelineScrubber({
           const left = (clip.start_sec / duration) * 100;
           const width = ((clip.end_sec - clip.start_sec) / duration) * 100;
           const isSel = clip.id === selectedClipId;
+          const isInFilter = !selectedTopic || clip.topic === selectedTopic;
+          const isChecked = selectedClipIds.has(clip.id);
+          let dimClass = "";
+          if (!isInFilter) dimClass = "opacity-30";
+          else if (!isChecked && selectedClipIds.size > 0) dimClass = "opacity-60";
           return (
             <div
               key={clip.id}
-              className={`absolute top-2 bottom-2 rounded ${clipBarColor(clip, isSel)} ${isSel ? "z-10" : "z-0"}`}
+              className={`absolute top-2 bottom-2 rounded ${clipBarColor(clip, isSel)} ${isSel ? "z-10" : "z-0"} ${dimClass}`}
               style={{ left: `${left}%`, width: `${width}%` }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -213,6 +224,7 @@ function PlayButtonRow({
   onToggleLoop,
   onPlayAll,
   onStopPreviewing,
+  playAllLabel,
 }: {
   isPlaying: boolean;
   isLooping: boolean;
@@ -225,6 +237,7 @@ function PlayButtonRow({
   onToggleLoop: () => void;
   onPlayAll: () => void;
   onStopPreviewing: () => void;
+  playAllLabel: string;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -260,7 +273,7 @@ function PlayButtonRow({
           onClick={onPlayAll}
           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-800 text-gray-400 hover:text-white transition-colors"
         >
-          ▶ Play All
+          {playAllLabel}
         </button>
       )}
     </div>
@@ -411,6 +424,15 @@ type PlayerReadyProps = Omit<PlayerSectionProps, "isCompleted" | "artifacts"> & 
 };
 
 function PlayerReadyContent(p: PlayerReadyProps) {
+  const { sortedClips, selectedClipIds, selectedTopic } = p;
+  let playCount = 0;
+  if (sortedClips) {
+    let toPlay =
+      selectedClipIds.size > 0 ? sortedClips.filter((c) => selectedClipIds.has(c.id)) : sortedClips;
+    if (selectedTopic) toPlay = toPlay.filter((c) => c.topic === selectedTopic);
+    playCount = toPlay.length;
+  }
+  const playAllLabel = `▶ Play ${playCount} clip${playCount !== 1 ? "s" : ""}`;
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <VideoDisplay
@@ -436,6 +458,8 @@ function PlayerReadyContent(p: PlayerReadyProps) {
           onHandleMouseDown={p.onHandleMouseDown}
           onSetSelectedClipId={p.onSetSelectedClipId}
           onSeekToClip={p.onSeekToClip}
+          selectedTopic={p.selectedTopic}
+          selectedClipIds={p.selectedClipIds}
         />
       )}
       {!p.isYouTube && (
@@ -452,6 +476,7 @@ function PlayerReadyContent(p: PlayerReadyProps) {
             onToggleLoop={p.onToggleLoop}
             onPlayAll={p.onPlayAll}
             onStopPreviewing={p.onStopPreviewing}
+            playAllLabel={playAllLabel}
           />
           <CaptionStatusRow
             showCaptions={p.showCaptions}

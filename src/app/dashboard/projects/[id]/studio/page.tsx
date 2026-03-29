@@ -91,7 +91,13 @@ function StudioSidebar() {
               });
             }}
             onSelectAll={(ids) => p.setSelectedClipIds(new Set(ids))}
-            onDeselectAll={() => p.setSelectedClipIds(new Set())}
+            onDeselectAll={(ids) =>
+              p.setSelectedClipIds((prev) => {
+                const next = new Set(prev);
+                ids.forEach((id) => next.delete(id));
+                return next;
+              })
+            }
             onToggleCaptions={() => p.setWithCaptions((v) => !v)}
             onExportBatch={p.handleExportBatch}
             onClipAction={p.handleClipAction}
@@ -147,6 +153,8 @@ function StudioPlayer() {
           onToggleCaptions={() => p.setShowCaptions((c) => !c)}
           onSetSelectedClipId={p.setSelectedClipId}
           onSeekToClip={p.seekToClip}
+          selectedTopic={p.selectedTopic}
+          selectedClipIds={p.selectedClipIds}
         />
       </ErrorBoundary>
     </div>

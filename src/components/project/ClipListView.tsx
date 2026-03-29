@@ -9,10 +9,12 @@ function TopicFilterChips({
   clips,
   selectedTopic,
   onSetSelectedTopic,
+  selectedClipIds,
 }: {
   clips: Clip[] | null;
   selectedTopic: string | null;
   onSetSelectedTopic: (t: string | null) => void;
+  selectedClipIds: Set<string>;
 }) {
   const topics = [...new Set((clips ?? []).map((c) => c.topic).filter(Boolean) as string[])];
   if (topics.length < 2) return null;
@@ -23,10 +25,16 @@ function TopicFilterChips({
         onClick={() => onSetSelectedTopic(null)}
         className={`shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors min-h-[32px] ${selectedTopic === null ? "bg-violet-600 border-violet-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"}`}
       >
-        All topics ({clips?.length})
+        {selectedClipIds.size > 0
+          ? `All topics (${(clips ?? []).filter((c) => selectedClipIds.has(c.id)).length} selected / ${clips?.length})`
+          : `All topics (${clips?.length})`}
       </button>
       {topics.map((t) => {
-        const count = clips?.filter((c) => c.topic === t).length ?? 0;
+        const total = clips?.filter((c) => c.topic === t).length ?? 0;
+        const selectedCount =
+          selectedClipIds.size > 0
+            ? (clips ?? []).filter((c) => c.topic === t && selectedClipIds.has(c.id)).length
+            : null;
         return (
           <button
             key={t}
@@ -34,7 +42,7 @@ function TopicFilterChips({
             onClick={() => onSetSelectedTopic(selectedTopic === t ? null : t)}
             className={`shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors min-h-[32px] ${selectedTopic === t ? "bg-violet-600 border-violet-600 text-white" : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"}`}
           >
-            {t} ({count})
+            {selectedCount !== null ? `${t} (${selectedCount} / ${total})` : `${t} (${total})`}
           </button>
         );
       })}
@@ -140,7 +148,7 @@ function ExportActions({
 }
 
 function ExportBar({
-  sortedClips,
+  visibleClips,
   selectedClipIds,
   withCaptions,
   clips,
@@ -152,13 +160,13 @@ function ExportBar({
   onKeepAll,
   onStitchExport,
 }: {
-  sortedClips: Clip[];
+  visibleClips: Clip[];
   selectedClipIds: Set<string>;
   withCaptions: boolean;
   clips: Clip[] | null;
   allApproved: boolean;
   onSelectAll: (ids: string[]) => void;
-  onDeselectAll: () => void;
+  onDeselectAll: (ids: string[]) => void;
   onToggleCaptions: () => void;
   onExportBatch: () => void;
   onKeepAll: () => void;
@@ -169,18 +177,20 @@ function ExportBar({
   const noneSelected = selectedClipIds.size === 0;
   const multiSelected = selectedClipIds.size > 1;
   const oneSelected = selectedClipIds.size === 1;
+  const allVisibleSelected =
+    visibleClips.length > 0 && visibleClips.every((c) => selectedClipIds.has(c.id));
 
   return (
     <div className="sticky top-0 z-10 bg-gray-950 py-2 flex items-center gap-2 border-b border-gray-800 -mx-4 px-4">
       <button
         type="button"
         onClick={() => {
-          if (selectedClipIds.size === sortedClips.length) onDeselectAll();
-          else onSelectAll(sortedClips.map((c) => c.id));
+          if (allVisibleSelected) onDeselectAll(visibleClips.map((c) => c.id));
+          else onSelectAll(visibleClips.map((c) => c.id));
         }}
         className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-800 text-gray-400 hover:text-white transition-colors min-h-[30px] whitespace-nowrap"
       >
-        Select All
+        {allVisibleSelected ? "Deselect All" : "Select All"}
       </button>
       <button
         type="button"
@@ -228,7 +238,7 @@ export interface ClipListViewProps {
   onSeekToClip: (clip: Clip) => void;
   onToggleClipCheck: (clipId: string, checked: boolean) => void;
   onSelectAll: (allIds: string[]) => void;
-  onDeselectAll: () => void;
+  onDeselectAll: (ids: string[]) => void;
   onToggleCaptions: () => void;
   onExportBatch: () => void;
   onClipAction: (
@@ -345,6 +355,7 @@ type ClipBodyProps = {
   regularClips: Clip[];
   skippedClips: Clip[];
   displayClips: Clip[];
+  visibleClips: Clip[];
   transcriptSegments?: Segment[];
 } & Omit<
   ClipListViewProps,
@@ -367,7 +378,7 @@ function ClipBody(p: ClipBodyProps) {
       />
       {p.activeTab === "clips" && p.regularClips.length > 0 && (
         <ExportBar
-          sortedClips={p.regularClips}
+          visibleClips={p.visibleClips}
           selectedClipIds={p.selectedClipIds}
           withCaptions={p.withCaptions}
           clips={p.clips}
@@ -429,6 +440,7 @@ export function ClipListView(props: ClipListViewProps) {
   const skippedClips = sortedClips.filter((c) => c.status === "rejected");
   const filterByTopic = (arr: Clip[]) =>
     arr.filter((c) => !selectedTopic || c.topic === selectedTopic);
+  const visibleClips = filterByTopic(regularClips);
   const displayClips = filterByTopic(activeTab === "clips" ? regularClips : skippedClips);
   const hasTabs = clipsStatus !== "generating" && sortedClips.length > 0;
 
@@ -438,6 +450,7 @@ export function ClipListView(props: ClipListViewProps) {
         clips={clips}
         selectedTopic={selectedTopic}
         onSetSelectedTopic={onSetSelectedTopic}
+        selectedClipIds={props.selectedClipIds}
       />
       <ClipBody
         {...props}
@@ -447,6 +460,7 @@ export function ClipListView(props: ClipListViewProps) {
         regularClips={regularClips}
         skippedClips={skippedClips}
         displayClips={displayClips}
+        visibleClips={visibleClips}
         transcriptSegments={props.transcriptSegments}
       />
     </>

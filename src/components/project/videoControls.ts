@@ -73,6 +73,8 @@ interface PlayAllArgs {
   previewClipIndexRef: React.MutableRefObject<number>;
   setIsPreviewing: (v: boolean) => void;
   setSelectedClipId: (id: string | null) => void;
+  selectedClipIds: Set<string>;
+  selectedTopic: string | null;
 }
 
 export function makeHandlePlayAll(args: PlayAllArgs) {
@@ -83,13 +85,16 @@ export function makeHandlePlayAll(args: PlayAllArgs) {
     previewClipIndexRef,
     setIsPreviewing,
     setSelectedClipId,
+    selectedClipIds,
+    selectedTopic,
   } = args;
   return function handlePlayAll() {
     if (!clips || clips.length === 0 || !videoRef.current) return;
-    const sorted = [
-      ...clips.filter((c) => c.status === "approved").sort((a, b) => b.score - a.score),
-      ...clips.filter((c) => c.status !== "approved").sort((a, b) => b.score - a.score),
-    ];
+    let filtered =
+      selectedClipIds.size > 0 ? clips.filter((c) => selectedClipIds.has(c.id)) : clips;
+    if (selectedTopic) filtered = filtered.filter((c) => c.topic === selectedTopic);
+    if (filtered.length === 0) return;
+    const sorted = [...filtered].sort((a, b) => a.start_sec - b.start_sec);
     previewClipsRef.current = sorted;
     previewClipIndexRef.current = 0;
     setIsPreviewing(true);
