@@ -3,6 +3,7 @@
 import { useMemo, useEffect } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   useNodesState,
@@ -352,7 +353,7 @@ function syncNodeSelection(
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function VideoKnowledgeGraph({
+function VideoKnowledgeGraphInner({
   graph,
   onSegmentClick,
   selectedSegmentIds,
@@ -431,5 +432,13 @@ export default function VideoKnowledgeGraph({
         </ReactFlow>
       </div>
     </div>
+  );
+}
+
+export default function VideoKnowledgeGraph(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <VideoKnowledgeGraphInner {...props} />
+    </ReactFlowProvider>
   );
 }

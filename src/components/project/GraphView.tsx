@@ -197,7 +197,7 @@ export function GraphView({
 }: GraphViewProps) {
   return (
     <>
-      <div className="rounded-xl overflow-hidden border border-gray-800" style={{ height: 420 }}>
+      <div className="rounded-xl border border-gray-800" style={{ height: 420, overflow: "clip" }}>
         <VideoKnowledgeGraph
           graph={computedGraph}
           onSegmentClick={(segment) => {
