@@ -242,8 +242,6 @@ export function useProjectData(id: string): ProjectDataResult {
       if (res.ok) {
         const json = await res.json();
         setData(json);
-        // forceRefreshUrl only on first load (artifacts === null) — avoids resetting
-        // <video src> mid-playback on subsequent status polls (reload-loop bug)
         if (json.status === "completed") loadArtifacts({ forceRefreshUrl: artifacts === null });
       }
     } finally {
@@ -264,9 +262,7 @@ export function useProjectData(id: string): ProjectDataResult {
   useClipsPolling({ dataStatus: data?.status, clips, id, clipsStatus, fetchClips, setClipsStatus });
   useAutoSelectClips(clips, s.setSelectedClipIds);
   useExportPolling(clips, fetchClips);
-
   useArtifactRefresh(data?.status, loadArtifacts);
-
   const lr: LocalRefs = { selectedClipIdRef, durationRef, isLoopingRef, isPreviewingRef, clipsRef };
   const projectHandlers = buildProjectHandlers({
     id,
@@ -285,19 +281,16 @@ export function useProjectData(id: string): ProjectDataResult {
     setSelectedClipId,
     selectedTopic,
   });
-  return buildResult(
-    s,
-    {
-      data,
-      loading,
-      artifacts,
-      clips,
-      clipsStatus,
-      selectedTopic,
-      setSelectedTopic,
-      selectedClipId,
-      setSelectedClipId,
-    },
-    { ...projectHandlers, ...videoHandlers }
-  );
+  const local: LocalState = {
+    data,
+    loading,
+    artifacts,
+    clips,
+    clipsStatus,
+    selectedTopic,
+    setSelectedTopic,
+    selectedClipId,
+    setSelectedClipId,
+  };
+  return buildResult(s, local, { ...projectHandlers, ...videoHandlers });
 }
