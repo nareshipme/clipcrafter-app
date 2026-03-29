@@ -10,9 +10,7 @@ const ClipRemotionPlayerInner = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <div className="w-full aspect-[9/16] bg-gray-900 rounded-xl animate-pulse" />
-    ),
+    loading: () => <div className="w-full aspect-[9/16] bg-gray-900 rounded-xl animate-pulse" />,
   }
 );
 

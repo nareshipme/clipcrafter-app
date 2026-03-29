@@ -47,9 +47,7 @@ export default function ClipEditorPage({
 
   const handleCaptionEdited = useCallback(
     (index: number, start: number, end: number) => {
-      editor.setCaptions(
-        editor.captions.map((c, i) => (i === index ? { ...c, start, end } : c))
-      );
+      editor.setCaptions(editor.captions.map((c, i) => (i === index ? { ...c, start, end } : c)));
     },
     [editor]
   );

@@ -84,10 +84,7 @@ function toCaptions(segments: Segment[], clipStart: number, clipEnd: number) {
 }
 
 /** Convert client-edited captions (clip-relative seconds) → Remotion Caption format */
-function customCaptionsToRemotionFormat(
-  captions: CustomCaption[],
-  clipStart: number
-) {
+function customCaptionsToRemotionFormat(captions: CustomCaption[], clipStart: number) {
   return captions.map((c) => ({
     text: c.text,
     startMs: (c.start + clipStart) * 1000,
@@ -230,9 +227,9 @@ export async function clipExportHandler(
       const renderStart = Date.now();
       try {
         const resolvedCaptions = withCaptions
-          ? (customCaptions
-              ? customCaptionsToRemotionFormat(customCaptions, clip.start_sec)
-              : toCaptions(segments, clip.start_sec, clip.end_sec))
+          ? customCaptions
+            ? customCaptionsToRemotionFormat(customCaptions, clip.start_sec)
+            : toCaptions(segments, clip.start_sec, clip.end_sec)
           : [];
         await renderWithRemotion({
           videoSrc: videoUrl,

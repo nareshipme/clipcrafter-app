@@ -443,13 +443,42 @@ function CaptionTrack({
   );
 }
 
+// ── TimelineOverlay — playhead + time labels ──────────────────────────────────
+
+function TimelineOverlay({ duration, currentTime }: { duration: number; currentTime: number }) {
+  return (
+    <>
+      {duration > 0 && (
+        <div
+          className="absolute top-0 bottom-0 w-px bg-white z-20 pointer-events-none"
+          style={{ left: `${(currentTime / duration) * 100}%` }}
+        />
+      )}
+      <div className="absolute bottom-1 left-2 text-xs text-gray-600 font-mono pointer-events-none">
+        {formatTime(currentTime)}
+      </div>
+      <div className="absolute bottom-1 right-2 text-xs text-gray-600 font-mono pointer-events-none">
+        {formatTime(duration)}
+      </div>
+    </>
+  );
+}
+
 // ── inner component (needs TimelineProvider ancestor) ─────────────────────────
 
 function TimelineContent(props: TwickTimelineProps) {
   const {
-    clips, duration, currentTime, selectedClipIds, selectedTopic,
-    onSeek, onClipTrimmed, onClipClick,
-    captions, clipStartSec = 0, onCaptionEdited,
+    clips,
+    duration,
+    currentTime,
+    selectedClipIds,
+    selectedTopic,
+    onSeek,
+    onClipTrimmed,
+    onClipClick,
+    captions,
+    clipStartSec = 0,
+    onCaptionEdited,
   } = props;
   const { editor } = useTimelineContext();
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -459,17 +488,30 @@ function TimelineContent(props: TwickTimelineProps) {
   const hasCaptions = !!captions && captions.length > 0;
   const totalHeight = CLIP_TRACK_HEIGHT + (hasCaptions ? CAPTION_TRACK_HEIGHT + 1 : 0);
 
-  useEffect(() => { clipsMapRef.current = new Map(clips.map((c) => [c.id, c])); }, [clips]);
-  useEffect(() => { captionsRef.current = captions ?? []; }, [captions]);
+  useEffect(() => {
+    clipsMapRef.current = new Map(clips.map((c) => [c.id, c]));
+  }, [clips]);
+  useEffect(() => {
+    captionsRef.current = captions ?? [];
+  }, [captions]);
   useEffect(() => {
     editor.loadProject({ tracks: buildInitialData(clips).tracks, version: 1 });
   }, [editor, clips]);
 
   const handleHandleMouseDown = useDragHandler({
-    timelineRef, clipsMapRef, editor, duration, onSeek, onClipTrimmed,
+    timelineRef,
+    clipsMapRef,
+    editor,
+    duration,
+    onSeek,
+    onClipTrimmed,
   });
   const handleCaptionMouseDown = useCaptionDragHandler({
-    timelineRef, captionsRef, duration, clipStartSec, onCaptionEdited,
+    timelineRef,
+    captionsRef,
+    duration,
+    clipStartSec,
+    onCaptionEdited,
   });
 
   function handleTimelineClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -501,18 +543,7 @@ function TimelineContent(props: TwickTimelineProps) {
           onHandleMouseDown={handleCaptionMouseDown}
         />
       )}
-      {duration > 0 && (
-        <div
-          className="absolute top-0 bottom-0 w-px bg-white z-20 pointer-events-none"
-          style={{ left: `${(currentTime / duration) * 100}%` }}
-        />
-      )}
-      <div className="absolute bottom-1 left-2 text-xs text-gray-600 font-mono pointer-events-none">
-        {formatTime(currentTime)}
-      </div>
-      <div className="absolute bottom-1 right-2 text-xs text-gray-600 font-mono pointer-events-none">
-        {formatTime(duration)}
-      </div>
+      <TimelineOverlay duration={duration} currentTime={currentTime} />
     </div>
   );
 }
