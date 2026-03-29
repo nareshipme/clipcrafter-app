@@ -206,3 +206,30 @@ The correct Sarvam Batch API flow (from docs) is:
 **Post-worthy:** Yes — "Whisper hallucination on silence: why your transcript loops the same phrase"
 
 ---
+
+---
+
+## 2026-03-29 — Video player not loading in production
+
+**Severity:** P1
+**Duration:** ~4 hours (detected during testing, root cause found same day)
+**Impact:** Video player broken for all production users — video would not load or would loop-reload
+
+**Symptom:** Video player showed loading spinner indefinitely in production. Locally worked fine.
+
+**Root cause:** Two compounding issues:
+1. R2 env vars (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`) on Vercel had trailing `\n` characters injected when set via CLI piping. The S3 client included the newline in auth headers → HTTP rejected with "Invalid character in header content".
+2. After fixing env vars, a secondary bug emerged: `loadArtifacts` was calling `setVideoUrl` on every status poll (mount + polling), causing `<video src>` to reset mid-playback → video reload loop.
+
+**Fix:**
+- Re-set all R2 env vars on Vercel using `echo -n` (no trailing newline) + force-redeployed
+- Introduced `forceRefreshUrl` flag in `loadArtifacts` — only updates `<video src>` on first load or explicit 6h refresh, not on routine status polls
+- Increased presigned URL expiry: 1h → 7h
+- Added 6h background URL refresh via `useArtifactRefresh`
+- Fixed download route to re-sign from R2 key instead of using stored (potentially expired) presigned URL
+
+**Files:** `src/components/project/useDataFetchers.ts`, `src/components/project/useProjectData.ts`, `src/app/api/projects/[id]/artifacts/route.ts`, `src/app/api/clips/[clipId]/download/route.ts`
+
+**Prevention:** Always use `echo -n` when piping secrets to CLI tools. Added `/api/health` endpoint that proactively catches R2 failures before users do. Health check cron runs every 30 min.
+
+**Post-worthy:** Yes — "Debugging a silent R2 auth failure caused by trailing newlines in env vars"
