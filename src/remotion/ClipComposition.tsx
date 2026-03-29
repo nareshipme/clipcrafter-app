@@ -192,9 +192,11 @@ export const ClipComposition: React.FC<ClipCompositionProps> = ({
       {withCaptions &&
         pages.map((page, i) => {
           const nextPage = pages[i + 1] ?? null;
-          const startFrame = Math.round(((page.startMs - startSec * 1000) / 1000) * fps);
+          // Captions are already 0-based (relative to clip start = 0ms)
+          // so page.startMs is directly in clip-relative milliseconds
+          const startFrame = Math.round((page.startMs / 1000) * fps);
           const endFrame = nextPage
-            ? Math.round(((nextPage.startMs - startSec * 1000) / 1000) * fps)
+            ? Math.round((nextPage.startMs / 1000) * fps)
             : Math.round(clipDuration * fps);
           const duration = Math.max(1, endFrame - startFrame);
           if (startFrame >= Math.round(clipDuration * fps)) return null;
