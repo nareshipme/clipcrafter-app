@@ -28,11 +28,16 @@ function buildFilename(raw: string, clipId: string): string {
   );
 }
 
-/** Extract R2 object key from a presigned URL: /<bucket>/<key...> → <key...> */
+/**
+ * Extract R2 object key from a presigned URL.
+ * URL format: https://<bucket>.<accountId>.r2.cloudflarestorage.com/<key>?X-Amz-...
+ * The bucket name is in the subdomain — the full pathname IS the key.
+ */
 function extractR2Key(url: string): string | null {
   try {
-    const parts = new URL(url).pathname.split("/").filter(Boolean);
-    return parts.length >= 2 ? parts.slice(1).join("/") : null;
+    // Strip leading slash, strip query string (already excluded by pathname)
+    const key = new URL(url).pathname.replace(/^\//, "");
+    return key.length > 0 ? key : null;
   } catch {
     return null;
   }
