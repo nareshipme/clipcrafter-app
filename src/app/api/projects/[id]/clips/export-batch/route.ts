@@ -61,16 +61,49 @@ interface DispatchOpts {
   supabaseUserId: string;
   withCaptions: boolean;
   captions?: CaptionSegment[];
+  captionStyle?: string;
+  captionPosition?: string;
+  captionSize?: string;
+  cropMode?: string;
+  cropX?: number;
+  cropY?: number;
+  cropZoom?: number;
 }
 
 async function dispatchExportEvents(opts: DispatchOpts) {
-  const { validIds, projectId, supabaseUserId, withCaptions, captions } = opts;
+  const {
+    validIds,
+    projectId,
+    supabaseUserId,
+    withCaptions,
+    captions,
+    captionStyle,
+    captionPosition,
+    captionSize,
+    cropMode,
+    cropX,
+    cropY,
+    cropZoom,
+  } = opts;
   await supabaseAdmin.from("clips").update({ status: "exporting" }).in("id", validIds);
   await Promise.all(
     validIds.map((clipId) =>
       inngest.send({
         name: "clipcrafter/clip.export",
-        data: { clipId, projectId, userId: supabaseUserId, withCaptions, customCaptions: captions },
+        data: {
+          clipId,
+          projectId,
+          userId: supabaseUserId,
+          withCaptions,
+          customCaptions: captions,
+          captionStyle,
+          captionPosition,
+          captionSize,
+          cropMode,
+          cropX,
+          cropY,
+          cropZoom,
+        },
       })
     )
   );
@@ -99,8 +132,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     clipIds?: unknown;
     withCaptions?: unknown;
     captions?: unknown;
+    captionStyle?: string;
+    captionPosition?: string;
+    captionSize?: string;
+    cropMode?: string;
+    cropX?: number;
+    cropY?: number;
+    cropZoom?: number;
   };
-  const { clipIds, withCaptions, captions } = body;
+  const {
+    clipIds,
+    withCaptions,
+    captions,
+    captionStyle,
+    captionPosition,
+    captionSize,
+    cropMode,
+    cropX,
+    cropY,
+    cropZoom,
+  } = body;
 
   const validationError = validateExportBatchBody(body);
   if (validationError) return Response.json({ error: validationError }, { status: 400 });
@@ -132,6 +183,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     supabaseUserId,
     withCaptions: withCaptions === true,
     captions: resolveCustomCaptions(captions),
+    captionStyle,
+    captionPosition,
+    captionSize,
+    cropMode,
+    cropX,
+    cropY,
+    cropZoom,
   });
 
   return Response.json({ queued: validIds.length, skipped: skippedCount }, { status: 202 });
